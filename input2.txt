@@ -1,0 +1,1178 @@
+Here’s the 10,000-foot process I’d use.
+
+1) Separate the system into 4 pipelines
+A) Data capture (daily)
+
+Food (photos + meal log)
+
+Symptoms (pain score, timing, location, duration)
+
+Sleep (bedtime, wake time, awakenings)
+
+Stress/anxiety (simple scale + notable events)
+
+Meds/supplements, illness, exercise
+
+Rule: keep capture friction low. If you can’t log it consistently, it doesn’t exist.
+
+B) Normalize to a common timeline (hourly is usually best)
+
+Make everything joinable by time:
+
+events (meals, meds) → timestamped events
+
+states (sleep quality, stress) → intervals / daily aggregates
+
+outcomes (pain) → timestamped outcomes
+
+You want a “facts table” where each row is a time bin (e.g., hour) and columns are features.
+
+C) Feature generation (where the magic is)
+
+This is where you handle:
+
+lags (1h, 2h, 4h, 8h, 24h)
+
+rolling windows (last 6h food types, last 24h histamine load)
+
+interaction features (e.g., wheat + poor sleep)
+
+exposure scores (FODMAP, histamine, ultra-processed, allergens)
+
+D) Modeling + review loop (weekly)
+
+correlation screens (fast)
+
+model training (random forest / xgboost later)
+
+simple forecasts (does pain spike after X?)
+
+“hypothesis list” you test gently over time
+
+2) Treat RAG as “knowledge base,” not the main brain
+
+Your vector DB (papers) is best for:
+
+“What does the evidence say about X?”
+
+“What diets are supported for EoE / functional abdominal pain?”
+
+“What are common confounders / study limitations?”
+
+It’s not great for finding correlations in Henry’s data. That’s a job for structured analytics.
+
+So: keep two separate stores:
+
+Evidence store (RAG): PDFs, guidelines, your notes
+
+Observations store (analytics): your logs + derived features
+
+3) Make ingestion boring: batch it + cache it
+
+Slow embedding is fine if it runs:
+
+overnight
+
+once per new document batch
+
+with incremental updates
+
+Best practice:
+
+don’t re-embed unchanged documents
+
+keep a manifest of docs + checksum + embedding version
+
+only embed “deltas”
+
+For your “many sources” world (sleep, stress, diet logs), embeddings are usually not needed at all unless it’s free-text (journals, clinician notes).
+
+4) Adopt an “MVP → scale” process (so you don’t drown)
+Phase 1 (2–4 weeks): “Get reliable signals”
+
+Choose 5–10 core variables you can log consistently
+
+Build a single joined timeline table
+
+Start with lagged correlation and simple rules
+
+Use RAG only for interpretation and planning
+
+Deliverable at end:
+
+a weekly report: top suspected triggers + confidence + supporting evidence snippets + caveats
+
+Phase 2 (next 4–8 weeks): “Add derived exposure features”
+
+integrate external databases (FODMAP/histamine/additives)
+
+produce per-meal “scores”
+
+start modeling with:
+
+logistic regression / elastic net (interpretable)
+
+random forest (nonlinear, interactions)
+
+Deliverable:
+
+ranked feature importance with lag windows (“wheat 4–8h lag”)
+
+Phase 3: “Experiment loop”
+
+pick 1 hypothesis at a time
+
+set a trial window
+
+measure outcome change with time controls
+
+keep notes for confounders (illness, travel, stress)
+
+5) A pragmatic architecture (lightweight, i5-friendly)
+
+You can keep this very manageable:
+
+Storage
+
+SQLite or DuckDB for structured logs + features (fast, local, portable)
+
+Chroma for PDFs (RAG only)
+
+Files in a consistent folder layout
+
+Compute
+
+scheduled batch jobs (cron/systemd timer):
+
+ingest new PDFs (rare)
+
+update feature tables daily
+
+train models weekly
+
+Outputs
+
+one “dashboard” (Streamlit later) or even a generated markdown/HTML report:
+
+last 7 days summary
+
+trigger candidates
+
+model notes + evidence citations
+
+6) The key process habit: a weekly “triage + learning” meeting with yourself
+
+Every week:
+
+Check data quality (missing logs, inconsistent timestamps)
+
+Review top 3 suspected triggers (with lags)
+
+Compare to evidence (RAG)
+
+Decide next week’s “one thing to test”
+
+Record confounders
+
+This prevents “infinite analysis” and keeps you moving.
+
+7) How I’d prioritize your next steps (concrete)
+
+Create the unified timeline table (hourly bins)
+
+Add symptom scoring + meal timestamps reliably
+
+Add 2–3 lag features (4h, 8h, 24h) for a handful of food categories
+
+Only then add external databases (FODMAP/histamine/etc.)
+
+Keep RAG as a separate tool for “what does research say?”
+
+If you want, I can turn this into a simple repo plan under ~/henryfood/scripts/src/ with:
+
+ingest/ (pdf ingestion + manifest)
+
+features/ (timeline + lags)
+
+models/ (weekly training)
+
+reports/ (weekly output)
+
+…and a single command like make daily / make weekly so it feels like a real pipeline rather than a bunch of ad-hoc scripts.
+
+yes please
+
+Awesome — here’s a clean, “real pipeline” layout for ~/henryfood that keeps things incremental, resumable, and slow-stuff runs in batch. It matches what you already have (scripts/src/...) and adds a simple Makefile so you can run make daily / make weekly.
+
+Target repo structure
+henryfood/
+  llm/                       # RAG + PDFs (you already have this)
+    data/
+      pdfs/
+      chroma/
+      querylog.sqlite
+    ingest_verbose.py
+    rag_chat.py
+
+  vectors/                   # optional: shared vector stores later
+  scripts/
+    pyproject.toml (optional)
+    requirements.txt
+    Makefile
+    src/
+      ingest/
+        __init__.py
+        manifest.py          # file hashing + “only ingest deltas”
+        pdf_ingest.py        # (calls llm ingest or shared logic)
+      features/
+        __init__.py
+        timeline.py          # build hourly timeline table
+        lag_features.py      # generate lagged exposures
+        external_scores.py   # histamine/FODMAP/additives mapping
+      models/
+        __init__.py
+        train.py             # weekly training
+        eval.py              # sanity metrics, drift checks
+      reports/
+        __init__.py
+        weekly_report.py     # markdown/html report generation
+      utils/
+        __init__.py
+        io.py
+        time.py
+        db.py                # DuckDB/SQLite helpers
+
+Your “single source of truth” data model (10k ft view)
+
+Use DuckDB (recommended) or SQLite as the structured store:
+
+data/raw/ (immutable-ish)
+
+meals.csv / meals.jsonl
+
+symptoms.csv
+
+sleep.csv
+
+stress.csv
+
+meds.csv
+
+data/curated/henry.duckdb
+
+events_meals, events_meds
+
+states_sleep, states_stress
+
+outcomes_pain
+
+timeline_hourly (the joinable table)
+
+features_hourly (lags/windows/exposure scores)
+
+model_runs + feature_importance
+
+This lets you do real analytics without needing embeddings for everything.
+
+Make it runnable: scripts/Makefile
+
+Create ~/henryfood/scripts/Makefile:
+
+PY=python3
+VENV=.venv
+PIP=$(VENV)/bin/pip
+PYV=$(VENV)/bin/python
+
+.PHONY: venv install daily weekly ingest_pdfs build_features train report
+
+venv:
+	$(PY) -m venv $(VENV)
+
+install: venv
+	$(PIP) install -U pip
+	$(PIP) install -r requirements.txt
+
+# Daily: ingest new raw files, rebuild features
+daily: build_features
+
+# Weekly: train + report
+weekly: train report
+
+ingest_pdfs:
+	$(PYV) -m src.ingest.pdf_ingest
+
+build_features:
+	$(PYV) -m src.features.timeline
+	$(PYV) -m src.features.lag_features
+	$(PYV) -m src.features.external_scores
+
+train:
+	$(PYV) -m src.models.train
+
+report:
+	$(PYV) -m src.reports.weekly_report
+
+Dependencies: scripts/requirements.txt
+
+Minimal starter set:
+
+duckdb
+pandas
+numpy
+scikit-learn
+python-dateutil
+tqdm
+pypdf
+chromadb
+ollama
+
+
+(You can keep LLM/RAG deps here or only in llm/—either works.)
+
+The pipeline steps you’ll actually run
+Daily loop
+
+Update raw logs (food/symptoms/sleep/stress)
+
+Run:
+
+cd ~/henryfood/scripts
+make install
+make daily
+
+Weekly loop
+cd ~/henryfood/scripts
+make weekly
+
+PDF ingestion (rare, slow batch)
+cd ~/henryfood/scripts
+make ingest_pdfs
+
+A simple scheduling approach (no fuss)
+Option A: cron (simplest)
+
+Edit crontab:
+
+crontab -e
+
+
+Add:
+
+# Daily features at 01:15
+15 1 * * * cd /home/timbass/henryfood/scripts && . .venv/bin/activate && make daily >> /home/timbass/henryfood/logs/daily.log 2>&1
+
+# Weekly training/report on Sundays at 02:00
+0 2 * * 0 cd /home/timbass/henryfood/scripts && . .venv/bin/activate && make weekly >> /home/timbass/henryfood/logs/weekly.log 2>&1
+
+Option B: systemd timers (more robust)
+
+We can do this next if you prefer.
+
+What I suggest we build first (so you see value quickly)
+Step 1 — Timeline table (hourly)
+
+Create timeline_hourly with columns like:
+
+ts_hour
+
+meal_exposure_* (counts/flags)
+
+sleep_quality / sleep_hours_last_n
+
+stress_score
+
+pain_score (outcome)
+
+confounders (illness, travel, meds)
+
+Step 2 — Lag features
+
+Generate features like:
+
+meal_wheat_4h, meal_dairy_8h, histamine_load_24h
+
+rolling windows: fodmap_load_last_6h
+
+Step 3 — Weekly model + report
+
+Start with interpretable models:
+
+elastic net logistic regression (pain yes/no)
+
+random forest for non-linear interactions later
+
+Report outputs:
+
+top features + lags
+
+“most suspicious exposures” summary
+
+missing data warnings
+
+Next: I’ll give you the exact starter files
+
+If you say “go”, I’ll paste ready-to-run code for:
+
+src/utils/db.py (DuckDB connection + table helpers)
+
+src/features/timeline.py (build hourly table from data/raw/*.csv)
+
+src/features/lag_features.py (generate lag windows)
+
+src/reports/weekly_report.py (writes reports/weekly.md)
+
+…and you’ll be able to run make daily and see a real table + a report even before the fancy models.
+
+Before I paste code, tell me one thing (so I don’t make you redo it):
+
+Do you want the structured store as DuckDB (recommended) or SQLite?
+
+yep lets go duck db and go
+
+Great — DuckDB is the right choice here. Below is a drop-in, runnable starter pipeline you can paste into your repo that gives you:
+
+a DuckDB database at ~/henryfood/data/curated/henry.duckdb
+
+an hourly timeline table timeline_hourly
+
+lag/rolling-window features table features_hourly
+
+a weekly markdown report at ~/henryfood/reports/weekly.md
+
+a Makefile so you can run: make daily and make weekly
+
+This is intentionally “boring + robust” so it scales as you add more sources.
+
+0) Create folders
+mkdir -p ~/henryfood/{data/raw,data/curated,reports,logs}
+mkdir -p ~/henryfood/scripts/src/{utils,features,models,reports,ingest}
+touch ~/henryfood/scripts/src/{utils,features,models,reports,ingest}/__init__.py
+
+1) scripts/requirements.txt
+cat > ~/henryfood/scripts/requirements.txt <<'TXT'
+duckdb
+pandas
+numpy
+python-dateutil
+scikit-learn
+tqdm
+TXT
+
+2) scripts/Makefile
+cat > ~/henryfood/scripts/Makefile <<'MAKE'
+PY=python3
+VENV=.venv
+PIP=$(VENV)/bin/pip
+PYV=$(VENV)/bin/python
+
+.PHONY: venv install daily weekly build_timeline build_features train report
+
+venv:
+	$(PY) -m venv $(VENV)
+
+install: venv
+	$(PIP) install -U pip
+	$(PIP) install -r requirements.txt
+
+daily: build_timeline build_features
+
+weekly: train report
+
+build_timeline:
+	$(PYV) -m src.features.timeline
+
+build_features:
+	$(PYV) -m src.features.lag_features
+
+train:
+	$(PYV) -m src.models.train
+
+report:
+	$(PYV) -m src.reports.weekly_report
+MAKE
+
+3) Create “source of truth” config + DuckDB helper
+scripts/src/utils/paths.py
+cat > ~/henryfood/scripts/src/utils/paths.py <<'PY'
+from pathlib import Path
+
+BASE = Path.home() / "henryfood"
+
+RAW_DIR = BASE / "data" / "raw"
+CURATED_DIR = BASE / "data" / "curated"
+REPORTS_DIR = BASE / "reports"
+
+DB_PATH = CURATED_DIR / "henry.duckdb"
+PY
+
+scripts/src/utils/db.py
+cat > ~/henryfood/scripts/src/utils/db.py <<'PY'
+from __future__ import annotations
+
+import duckdb
+from pathlib import Path
+from .paths import DB_PATH, CURATED_DIR
+
+def connect(db_path: Path = DB_PATH) -> duckdb.DuckDBPyConnection:
+    CURATED_DIR.mkdir(parents=True, exist_ok=True)
+    con = duckdb.connect(str(db_path))
+    # Quality-of-life settings
+    con.execute("PRAGMA threads=4;")
+    con.execute("PRAGMA enable_progress_bar=true;")
+    return con
+
+def table_exists(con: duckdb.DuckDBPyConnection, name: str) -> bool:
+    q = """
+    SELECT COUNT(*)::INT
+    FROM information_schema.tables
+    WHERE table_name = ?
+    """
+    return con.execute(q, [name]).fetchone()[0] > 0
+PY
+
+4) Define your raw CSV schemas (simple, minimal)
+
+Create these starter CSVs. You can overwrite/extend later, but this gets the pipeline running.
+
+data/raw/meals.csv
+
+Columns:
+
+ts (ISO datetime)
+
+meal_id (optional string)
+
+items (free text like “pizza, milk”)
+
+tags (pipe-separated quick tags like wheat|dairy)
+
+notes
+
+cat > ~/henryfood/data/raw/meals.csv <<'CSV'
+ts,meal_id,items,tags,notes
+CSV
+
+data/raw/symptoms.csv
+
+ts
+
+pain (0–10)
+
+location (free text)
+
+notes
+
+cat > ~/henryfood/data/raw/symptoms.csv <<'CSV'
+ts,pain,location,notes
+CSV
+
+data/raw/sleep.csv
+
+date (YYYY-MM-DD)
+
+sleep_hours (float)
+
+wake_ups (int)
+
+sleep_quality (0–10)
+
+cat > ~/henryfood/data/raw/sleep.csv <<'CSV'
+date,sleep_hours,wake_ups,sleep_quality
+CSV
+
+data/raw/stress.csv
+
+date
+
+stress (0–10)
+
+notes
+
+cat > ~/henryfood/data/raw/stress.csv <<'CSV'
+date,stress,notes
+CSV
+
+
+You can add one or two sample rows later to see it populate.
+
+5) Build the hourly timeline table
+scripts/src/features/timeline.py
+
+This reads those raw CSVs, normalizes timestamps, and produces:
+
+events_meals
+
+outcomes_pain
+
+states_sleep_daily
+
+states_stress_daily
+
+timeline_hourly
+
+cat > ~/henryfood/scripts/src/features/timeline.py <<'PY'
+from __future__ import annotations
+
+from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+
+from src.utils.db import connect
+from src.utils.paths import RAW_DIR
+
+def _read_csv(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame()
+    df = pd.read_csv(path)
+    # Normalize empty files
+    if df.empty:
+        return df
+    return df
+
+def main():
+    con = connect()
+
+    meals_path = RAW_DIR / "meals.csv"
+    symptoms_path = RAW_DIR / "symptoms.csv"
+    sleep_path = RAW_DIR / "sleep.csv"
+    stress_path = RAW_DIR / "stress.csv"
+
+    meals = _read_csv(meals_path)
+    symptoms = _read_csv(symptoms_path)
+    sleep = _read_csv(sleep_path)
+    stress = _read_csv(stress_path)
+
+    # ---- Meals (events) ----
+    if not meals.empty:
+        meals["ts"] = pd.to_datetime(meals["ts"], utc=True, errors="coerce")
+        meals = meals.dropna(subset=["ts"])
+        meals["ts_hour"] = meals["ts"].dt.floor("h")
+        meals["tags"] = meals.get("tags", "").fillna("").astype(str)
+        meals["items"] = meals.get("items", "").fillna("").astype(str)
+        meals["notes"] = meals.get("notes", "").fillna("").astype(str)
+        if "meal_id" not in meals.columns:
+            meals["meal_id"] = ""
+        con.register("meals_df", meals)
+        con.execute("CREATE OR REPLACE TABLE events_meals AS SELECT * FROM meals_df;")
+    else:
+        con.execute("""
+        CREATE TABLE IF NOT EXISTS events_meals (
+            ts TIMESTAMP,
+            meal_id VARCHAR,
+            items VARCHAR,
+            tags VARCHAR,
+            notes VARCHAR,
+            ts_hour TIMESTAMP
+        );
+        """)
+
+    # ---- Symptoms / pain (outcomes) ----
+    if not symptoms.empty:
+        symptoms["ts"] = pd.to_datetime(symptoms["ts"], utc=True, errors="coerce")
+        symptoms = symptoms.dropna(subset=["ts"])
+        symptoms["ts_hour"] = symptoms["ts"].dt.floor("h")
+        symptoms["pain"] = pd.to_numeric(symptoms["pain"], errors="coerce")
+        symptoms["location"] = symptoms.get("location", "").fillna("").astype(str)
+        symptoms["notes"] = symptoms.get("notes", "").fillna("").astype(str)
+        con.register("symptoms_df", symptoms)
+        con.execute("CREATE OR REPLACE TABLE outcomes_pain AS SELECT * FROM symptoms_df;")
+    else:
+        con.execute("""
+        CREATE TABLE IF NOT EXISTS outcomes_pain (
+            ts TIMESTAMP,
+            pain DOUBLE,
+            location VARCHAR,
+            notes VARCHAR,
+            ts_hour TIMESTAMP
+        );
+        """)
+
+    # ---- Sleep (daily state) ----
+    if not sleep.empty:
+        sleep["date"] = pd.to_datetime(sleep["date"], errors="coerce").dt.date
+        sleep = sleep.dropna(subset=["date"])
+        sleep["sleep_hours"] = pd.to_numeric(sleep["sleep_hours"], errors="coerce")
+        sleep["wake_ups"] = pd.to_numeric(sleep["wake_ups"], errors="coerce")
+        sleep["sleep_quality"] = pd.to_numeric(sleep["sleep_quality"], errors="coerce")
+        con.register("sleep_df", sleep)
+        con.execute("CREATE OR REPLACE TABLE states_sleep_daily AS SELECT * FROM sleep_df;")
+    else:
+        con.execute("""
+        CREATE TABLE IF NOT EXISTS states_sleep_daily (
+            date DATE,
+            sleep_hours DOUBLE,
+            wake_ups INTEGER,
+            sleep_quality DOUBLE
+        );
+        """)
+
+    # ---- Stress (daily state) ----
+    if not stress.empty:
+        stress["date"] = pd.to_datetime(stress["date"], errors="coerce").dt.date
+        stress = stress.dropna(subset=["date"])
+        stress["stress"] = pd.to_numeric(stress["stress"], errors="coerce")
+        stress["notes"] = stress.get("notes", "").fillna("").astype(str)
+        con.register("stress_df", stress)
+        con.execute("CREATE OR REPLACE TABLE states_stress_daily AS SELECT * FROM stress_df;")
+    else:
+        con.execute("""
+        CREATE TABLE IF NOT EXISTS states_stress_daily (
+            date DATE,
+            stress DOUBLE,
+            notes VARCHAR
+        );
+        """)
+
+    # ---- Timeline hourly: choose min/max from events/outcomes ----
+    # If no data, create empty but valid table.
+    con.execute("""
+    CREATE OR REPLACE TABLE _bounds AS
+    SELECT
+      MIN(ts_hour) AS min_hour,
+      MAX(ts_hour) AS max_hour
+    FROM (
+      SELECT ts_hour FROM events_meals
+      UNION ALL
+      SELECT ts_hour FROM outcomes_pain
+    );
+    """)
+
+    bounds = con.execute("SELECT min_hour, max_hour FROM _bounds").fetchone()
+    min_hour, max_hour = bounds[0], bounds[1]
+
+    if min_hour is None or max_hour is None:
+        con.execute("""
+        CREATE OR REPLACE TABLE timeline_hourly AS
+        SELECT
+          CAST(NULL AS TIMESTAMP) AS ts_hour,
+          CAST(NULL AS DATE) AS date,
+          0::INT AS meal_events,
+          CAST(NULL AS VARCHAR) AS meal_tags_concat,
+          CAST(NULL AS VARCHAR) AS meal_items_concat,
+          CAST(NULL AS DOUBLE) AS pain_max,
+          CAST(NULL AS DOUBLE) AS pain_avg,
+          CAST(NULL AS DOUBLE) AS sleep_hours,
+          CAST(NULL AS DOUBLE) AS sleep_quality,
+          CAST(NULL AS DOUBLE) AS stress
+        WHERE 1=0;
+        """)
+        print("timeline_hourly: no data yet (tables created).")
+        return
+
+    # Generate hour spine and join aggregates
+    con.execute("""
+    CREATE OR REPLACE TABLE timeline_hourly AS
+    WITH spine AS (
+      SELECT * FROM generate_series(?, ?, INTERVAL 1 HOUR) AS t(ts_hour)
+    ),
+    meal_agg AS (
+      SELECT
+        ts_hour,
+        COUNT(*)::INT AS meal_events,
+        string_agg(tags, ' | ') AS meal_tags_concat,
+        string_agg(items, ' | ') AS meal_items_concat
+      FROM events_meals
+      GROUP BY ts_hour
+    ),
+    pain_agg AS (
+      SELECT
+        ts_hour,
+        MAX(pain) AS pain_max,
+        AVG(pain) AS pain_avg
+      FROM outcomes_pain
+      GROUP BY ts_hour
+    )
+    SELECT
+      s.ts_hour,
+      CAST(s.ts_hour AS DATE) AS date,
+      COALESCE(m.meal_events, 0) AS meal_events,
+      COALESCE(m.meal_tags_concat, '') AS meal_tags_concat,
+      COALESCE(m.meal_items_concat, '') AS meal_items_concat,
+      p.pain_max,
+      p.pain_avg,
+      sl.sleep_hours,
+      sl.sleep_quality,
+      st.stress
+    FROM spine s
+    LEFT JOIN meal_agg m ON m.ts_hour = s.ts_hour
+    LEFT JOIN pain_agg p ON p.ts_hour = s.ts_hour
+    LEFT JOIN states_sleep_daily sl ON sl.date = CAST(s.ts_hour AS DATE)
+    LEFT JOIN states_stress_daily st ON st.date = CAST(s.ts_hour AS DATE)
+    ORDER BY s.ts_hour;
+    """, [min_hour, max_hour])
+
+    n = con.execute("SELECT COUNT(*) FROM timeline_hourly").fetchone()[0]
+    print(f"timeline_hourly: {n} rows")
+
+if __name__ == "__main__":
+    main()
+PY
+
+6) Build lag / rolling-window features
+scripts/src/features/lag_features.py
+
+This creates features_hourly with:
+
+tag flags per hour (dairy/wheat/soy/egg/shellfish/other)
+
+lagged meal exposures (4h, 8h, 24h)
+
+rolling window exposure counts (last 6h, last 24h)
+
+targets you can model (pain_max, pain_avg)
+
+cat > ~/henryfood/scripts/src/features/lag_features.py <<'PY'
+from __future__ import annotations
+
+from src.utils.db import connect
+
+# Quick starter tag dictionary (extend as you like)
+TAG_BUCKETS = {
+    "dairy": ["dairy", "milk", "cheese", "yogurt"],
+    "wheat": ["wheat", "gluten", "bread", "pasta"],
+    "soy": ["soy"],
+    "egg": ["egg"],
+    "shellfish": ["shrimp", "prawn", "crab", "lobster", "shellfish"],
+}
+
+def main():
+    con = connect()
+
+    # Ensure timeline exists
+    exists = con.execute("""
+      SELECT COUNT(*) FROM information_schema.tables WHERE table_name='timeline_hourly'
+    """).fetchone()[0]
+    if exists == 0:
+        raise SystemExit("timeline_hourly not found. Run: make build_timeline")
+
+    # Create tag flags per hour from the concatenated tags/items
+    # We keep it simple: search in tags+items text (lowercased)
+    # Later: replace with real external scoring tables (FODMAP/histamine/additives).
+    def like_any(field: str, needles: list[str]) -> str:
+        ors = " OR ".join([f"position(lower({field}), '{n.lower()}') > 0" for n in needles])
+        return f"({ors})" if ors else "(FALSE)"
+
+    dairy_expr = like_any("meal_text", TAG_BUCKETS["dairy"])
+    wheat_expr = like_any("meal_text", TAG_BUCKETS["wheat"])
+    soy_expr = like_any("meal_text", TAG_BUCKETS["soy"])
+    egg_expr = like_any("meal_text", TAG_BUCKETS["egg"])
+    shellfish_expr = like_any("meal_text", TAG_BUCKETS["shellfish"])
+
+    con.execute(f"""
+    CREATE OR REPLACE TABLE features_hourly AS
+    WITH base AS (
+      SELECT
+        ts_hour,
+        date,
+        pain_max,
+        pain_avg,
+        sleep_hours,
+        sleep_quality,
+        stress,
+        lower(coalesce(meal_tags_concat,'') || ' ' || coalesce(meal_items_concat,'')) AS meal_text,
+        meal_events
+      FROM timeline_hourly
+    ),
+    flags AS (
+      SELECT
+        *,
+        CASE WHEN meal_events > 0 AND {dairy_expr} THEN 1 ELSE 0 END AS meal_dairy,
+        CASE WHEN meal_events > 0 AND {wheat_expr} THEN 1 ELSE 0 END AS meal_wheat,
+        CASE WHEN meal_events > 0 AND {soy_expr} THEN 1 ELSE 0 END AS meal_soy,
+        CASE WHEN meal_events > 0 AND {egg_expr} THEN 1 ELSE 0 END AS meal_egg,
+        CASE WHEN meal_events > 0 AND {shellfish_expr} THEN 1 ELSE 0 END AS meal_shellfish
+      FROM base
+    ),
+    lags AS (
+      SELECT
+        *,
+        lag(meal_dairy, 4)  OVER (ORDER BY ts_hour) AS dairy_lag_4h,
+        lag(meal_dairy, 8)  OVER (ORDER BY ts_hour) AS dairy_lag_8h,
+        lag(meal_dairy, 24) OVER (ORDER BY ts_hour) AS dairy_lag_24h,
+
+        lag(meal_wheat, 4)  OVER (ORDER BY ts_hour) AS wheat_lag_4h,
+        lag(meal_wheat, 8)  OVER (ORDER BY ts_hour) AS wheat_lag_8h,
+        lag(meal_wheat, 24) OVER (ORDER BY ts_hour) AS wheat_lag_24h,
+
+        lag(meal_soy, 4)    OVER (ORDER BY ts_hour) AS soy_lag_4h,
+        lag(meal_soy, 8)    OVER (ORDER BY ts_hour) AS soy_lag_8h,
+        lag(meal_soy, 24)   OVER (ORDER BY ts_hour) AS soy_lag_24h,
+
+        lag(meal_egg, 4)    OVER (ORDER BY ts_hour) AS egg_lag_4h,
+        lag(meal_egg, 8)    OVER (ORDER BY ts_hour) AS egg_lag_8h,
+        lag(meal_egg, 24)   OVER (ORDER BY ts_hour) AS egg_lag_24h
+      FROM flags
+    ),
+    rolls AS (
+      SELECT
+        *,
+        SUM(meal_dairy) OVER (ORDER BY ts_hour ROWS BETWEEN 5 PRECEDING AND CURRENT ROW) AS dairy_roll_6h,
+        SUM(meal_dairy) OVER (ORDER BY ts_hour ROWS BETWEEN 23 PRECEDING AND CURRENT ROW) AS dairy_roll_24h,
+
+        SUM(meal_wheat) OVER (ORDER BY ts_hour ROWS BETWEEN 5 PRECEDING AND CURRENT ROW) AS wheat_roll_6h,
+        SUM(meal_wheat) OVER (ORDER BY ts_hour ROWS BETWEEN 23 PRECEDING AND CURRENT ROW) AS wheat_roll_24h,
+
+        SUM(meal_soy) OVER (ORDER BY ts_hour ROWS BETWEEN 5 PRECEDING AND CURRENT ROW) AS soy_roll_6h,
+        SUM(meal_soy) OVER (ORDER BY ts_hour ROWS BETWEEN 23 PRECEDING AND CURRENT ROW) AS soy_roll_24h,
+
+        SUM(meal_egg) OVER (ORDER BY ts_hour ROWS BETWEEN 5 PRECEDING AND CURRENT ROW) AS egg_roll_6h,
+        SUM(meal_egg) OVER (ORDER BY ts_hour ROWS BETWEEN 23 PRECEDING AND CURRENT ROW) AS egg_roll_24h
+      FROM lags
+    )
+    SELECT
+      ts_hour,
+      date,
+      pain_max,
+      pain_avg,
+      sleep_hours,
+      sleep_quality,
+      stress,
+      meal_events,
+      meal_dairy, meal_wheat, meal_soy, meal_egg, meal_shellfish,
+
+      COALESCE(dairy_lag_4h, 0)  AS dairy_lag_4h,
+      COALESCE(dairy_lag_8h, 0)  AS dairy_lag_8h,
+      COALESCE(dairy_lag_24h, 0) AS dairy_lag_24h,
+
+      COALESCE(wheat_lag_4h, 0)  AS wheat_lag_4h,
+      COALESCE(wheat_lag_8h, 0)  AS wheat_lag_8h,
+      COALESCE(wheat_lag_24h, 0) AS wheat_lag_24h,
+
+      COALESCE(soy_lag_4h, 0)    AS soy_lag_4h,
+      COALESCE(soy_lag_8h, 0)    AS soy_lag_8h,
+      COALESCE(soy_lag_24h, 0)   AS soy_lag_24h,
+
+      COALESCE(egg_lag_4h, 0)    AS egg_lag_4h,
+      COALESCE(egg_lag_8h, 0)    AS egg_lag_8h,
+      COALESCE(egg_lag_24h, 0)   AS egg_lag_24h,
+
+      COALESCE(dairy_roll_6h, 0)  AS dairy_roll_6h,
+      COALESCE(dairy_roll_24h, 0) AS dairy_roll_24h,
+      COALESCE(wheat_roll_6h, 0)  AS wheat_roll_6h,
+      COALESCE(wheat_roll_24h, 0) AS wheat_roll_24h,
+      COALESCE(soy_roll_6h, 0)    AS soy_roll_6h,
+      COALESCE(soy_roll_24h, 0)   AS soy_roll_24h,
+      COALESCE(egg_roll_6h, 0)    AS egg_roll_6h,
+      COALESCE(egg_roll_24h, 0)   AS egg_roll_24h
+    FROM rolls
+    ORDER BY ts_hour;
+    """)
+
+    n = con.execute("SELECT COUNT(*) FROM features_hourly").fetchone()[0]
+    print(f"features_hourly: {n} rows")
+
+if __name__ == "__main__":
+    main()
+PY
+
+7) Minimal weekly model training (fast, interpretable)
+scripts/src/models/train.py
+
+This does a very basic baseline:
+
+predicts “pain event” (pain_max >= 5) using a few features
+
+logs coefficients to DuckDB table model_coefficients
+
+cat > ~/henryfood/scripts/src/models/train.py <<'PY'
+from __future__ import annotations
+
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+
+from src.utils.db import connect
+
+def main():
+    con = connect()
+
+    # Pull features; drop rows with no pain label
+    df = con.execute("""
+      SELECT *
+      FROM features_hourly
+      WHERE pain_max IS NOT NULL
+    """).df()
+
+    if df.empty:
+        print("train: no labeled pain data yet (pain_max is NULL).")
+        return
+
+    # Simple binary label
+    df["pain_event"] = (df["pain_max"] >= 5).astype(int)
+
+    # Minimal feature set to start; expand later
+    feature_cols = [
+        "meal_dairy", "meal_wheat", "meal_soy", "meal_egg",
+        "dairy_lag_4h", "dairy_lag_8h", "dairy_lag_24h",
+        "wheat_lag_4h", "wheat_lag_8h", "wheat_lag_24h",
+        "sleep_hours", "sleep_quality", "stress",
+    ]
+    feature_cols = [c for c in feature_cols if c in df.columns]
+
+    X = df[feature_cols].fillna(0.0)
+    y = df["pain_event"]
+
+    model = Pipeline([
+        ("scaler", StandardScaler(with_mean=True, with_std=True)),
+        ("clf", LogisticRegression(max_iter=200, class_weight="balanced"))
+    ])
+    model.fit(X, y)
+
+    coef = model.named_steps["clf"].coef_[0]
+    intercept = float(model.named_steps["clf"].intercept_[0])
+
+    coef_df = pd.DataFrame({"feature": feature_cols, "coef": coef})
+    coef_df["abs_coef"] = coef_df["coef"].abs()
+    coef_df = coef_df.sort_values("abs_coef", ascending=False)
+
+    con.register("coef_df", coef_df)
+    con.execute("""
+      CREATE OR REPLACE TABLE model_coefficients AS
+      SELECT * FROM coef_df
+    """)
+    con.execute("CREATE OR REPLACE TABLE model_intercept AS SELECT ?::DOUBLE AS intercept", [intercept])
+
+    print("train: wrote model_coefficients + model_intercept")
+    print("Top signals:")
+    print(coef_df.head(10).to_string(index=False))
+
+if __name__ == "__main__":
+    main()
+PY
+
+8) Weekly report generation
+scripts/src/reports/weekly_report.py
+
+Writes ~/henryfood/reports/weekly.md with:
+
+data coverage (rows, missingness)
+
+last 7 days summary
+
+top model coefficients (if trained)
+
+cat > ~/henryfood/scripts/src/reports/weekly_report.py <<'PY'
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+
+from src.utils.db import connect
+from src.utils.paths import REPORTS_DIR
+
+def main():
+    con = connect()
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    now = datetime.now(timezone.utc)
+    week_ago = now - timedelta(days=7)
+
+    # Basic coverage
+    total_rows = con.execute("SELECT COUNT(*) FROM timeline_hourly").fetchone()[0]
+    total_feat = con.execute("SELECT COUNT(*) FROM features_hourly").fetchone()[0]
+
+    # Last 7 days
+    last7 = con.execute("""
+      SELECT *
+      FROM features_hourly
+      WHERE ts_hour >= ?
+      ORDER BY ts_hour
+    """, [week_ago]).df()
+
+    pain_events = 0
+    avg_pain = None
+    if not last7.empty:
+        pain_events = int(((last7["pain_max"].fillna(-1) >= 5)).sum())
+        avg_pain = float(last7["pain_max"].dropna().mean()) if last7["pain_max"].notna().any() else None
+
+    # Top coefficients if present
+    has_coef = con.execute("""
+      SELECT COUNT(*) FROM information_schema.tables WHERE table_name='model_coefficients'
+    """).fetchone()[0] > 0
+
+    coef_lines = []
+    if has_coef:
+        top = con.execute("""
+          SELECT feature, coef
+          FROM model_coefficients
+          ORDER BY abs_coef DESC
+          LIMIT 12
+        """).fetchall()
+        for f, c in top:
+            coef_lines.append(f"- `{f}`: {c:+.4f}")
+
+    out = []
+    out.append(f"# Weekly HenryFood Report\n")
+    out.append(f"- Generated (UTC): {now.isoformat()}\n")
+    out.append(f"## Data coverage\n")
+    out.append(f"- timeline_hourly rows: **{total_rows}**\n")
+    out.append(f"- features_hourly rows: **{total_feat}**\n")
+
+    out.append("\n## Last 7 days summary\n")
+    out.append(f"- Pain events (pain_max >= 5): **{pain_events}**\n")
+    out.append(f"- Average pain_max (if present): **{avg_pain if avg_pain is not None else 'n/a'}**\n")
+
+    out.append("\n## Model signals (very early / directional)\n")
+    if coef_lines:
+        out.extend([line + "\n" for line in coef_lines])
+    else:
+        out.append("- No model coefficients yet (need symptom labels + `make weekly`).\n")
+
+    report_path = REPORTS_DIR / "weekly.md"
+    report_path.write_text("".join(out), encoding="utf-8")
+    print(f"wrote report: {report_path}")
+
+if __name__ == "__main__":
+    main()
+PY
+
+9) Run it
+cd ~/henryfood/scripts
+make install
+make daily
+make weekly
+
+
+Then open:
+
+cat ~/henryfood/reports/weekly.md
+
+10) Add a couple sample rows (to see it “light up”)
+
+Paste these (UTC timestamps):
+
+cat >> ~/henryfood/data/raw/meals.csv <<'CSV'
+2026-01-05T07:30:00Z,m1,"toast with butter","wheat|dairy",""
+2026-01-05T12:10:00Z,m2,"pasta with cheese","wheat|dairy",""
+CSV
+
+cat >> ~/henryfood/data/raw/symptoms.csv <<'CSV'
+2026-01-05T20:30:00Z,7,"stomach","evening pain"
+CSV
+
+cat >> ~/henryfood/data/raw/sleep.csv <<'CSV'
+2026-01-05,9.0,1,7
+CSV
+
+cat >> ~/henryfood/data/raw/stress.csv <<'CSV'
+2026-01-05,3,""
+CSV
+
+
+Re-run:
+
+cd ~/henryfood/scripts
+make daily
+make weekly
+cat ~/henryfood/reports/weekly.md
+
+What you’ve got now (process-wise)
+
+Slow stuff (PDF embedding) lives in llm/ and runs rarely/batch.
+
+High-frequency analytics (diet/sleep/stress/pain) lives in DuckDB and runs fast daily.
+
+Everything is incremental and reproducible via make.
+
+If you want the next “scale step”, I’d do a unified “events” schema (meals/meds/stressors) and make the feature generator accept a config so adding a new signal is one file, not a refactor.

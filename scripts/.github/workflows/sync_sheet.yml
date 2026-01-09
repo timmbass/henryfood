@@ -1,0 +1,52 @@
+name: Sync Google Sheet
+
+on:
+  workflow_dispatch:
+    inputs:
+      sheet:
+        description: 'Google Sheet key or full URL (optional; can use SHEET_ID secret)'
+        required: false
+  schedule:
+    - cron: '15 2 * * *' # daily at 02:15 UTC
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install gspread pandas oauth2client
+
+      - name: Write Google creds
+        env:
+          CREDS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
+        run: |
+          if [ -z "$CREDS" ]; then echo "GOOGLE_SHEETS_CREDENTIALS secret not set"; exit 1; fi
+          mkdir -p scripts/data
+          echo "$CREDS" > scripts/data/gspread_credentials.json
+
+      - name: Run sync script
+        env:
+          SHEET_IN: ${{ github.event.inputs.sheet || secrets.SHEET_ID }}
+        run: |
+          if [ -z "$SHEET_IN" ]; then echo "Sheet not provided via workflow input or SHEET_ID secret"; exit 1; fi
+          python scripts/tools/sync_google_sheet.py "$SHEET_IN" --creds scripts/data/gspread_credentials.json --target scripts/data/raw/meals.json
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/data/raw/meals.json || true
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore(sync): update meals from Google Sheet [skip ci]" || true
+            git push
+          fi

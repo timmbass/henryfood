@@ -1,0 +1,151 @@
+"""Lag and rolling-window feature generation (integrated with DuckDB)
+
+This module builds `features_hourly` from `timeline_hourly` using SQL window functions.
+"""
+from __future__ import annotations
+
+import argparse
+
+from src.utils.db import connect
+
+# Quick starter tag dictionary (extend as you like)
+TAG_BUCKETS = {
+    "dairy": ["dairy", "milk", "cheese", "yogurt"],
+    "wheat": ["wheat", "gluten", "bread", "pasta"],
+    "soy": ["soy"],
+    "egg": ["egg"],
+    "shellfish": ["shrimp", "prawn", "crab", "lobster", "shellfish"],
+}
+
+
+def create_lags(df_path: str, out_path: str):
+    print(f"Stub: create_lags called for {df_path} -> {out_path}")
+
+
+def main():
+    con = connect()
+
+    # Ensure timeline exists
+    exists = con.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_name='timeline_hourly'").fetchone()[0]
+    if exists == 0:
+        raise SystemExit("timeline_hourly not found. Run: make build_timeline")
+
+    # Build SQL expressions to search for keywords in meal_text
+    def like_any(field: str, needles: list[str]) -> str:
+        # DuckDB position syntax: position('<substr>' IN <string>)
+        ors = " OR ".join([f"position('{n.lower()}' IN lower({field})) > 0" for n in needles])
+        return f"({ors})" if ors else "(FALSE)"
+
+    dairy_expr = like_any("meal_text", TAG_BUCKETS["dairy"])
+    wheat_expr = like_any("meal_text", TAG_BUCKETS["wheat"])
+    soy_expr = like_any("meal_text", TAG_BUCKETS["soy"])
+    egg_expr = like_any("meal_text", TAG_BUCKETS["egg"])
+    shellfish_expr = like_any("meal_text", TAG_BUCKETS["shellfish"])
+
+    # Create features_hourly using window functions
+    con.execute(f"""
+    CREATE OR REPLACE TABLE features_hourly AS
+    WITH base AS (
+      SELECT
+        ts_hour,
+        date,
+        pain_max,
+        pain_avg,
+        sleep_hours,
+        sleep_quality,
+        stress,
+        lower(coalesce(meal_tags_concat,'') || ' ' || coalesce(meal_items_concat,'')) AS meal_text,
+        meal_events
+      FROM timeline_hourly
+    ),
+    flags AS (
+      SELECT
+        *,
+        CASE WHEN meal_events > 0 AND {dairy_expr} THEN 1 ELSE 0 END AS meal_dairy,
+        CASE WHEN meal_events > 0 AND {wheat_expr} THEN 1 ELSE 0 END AS meal_wheat,
+        CASE WHEN meal_events > 0 AND {soy_expr} THEN 1 ELSE 0 END AS meal_soy,
+        CASE WHEN meal_events > 0 AND {egg_expr} THEN 1 ELSE 0 END AS meal_egg,
+        CASE WHEN meal_events > 0 AND {shellfish_expr} THEN 1 ELSE 0 END AS meal_shellfish
+      FROM base
+    ),
+    lags AS (
+      SELECT
+        *,
+        lag(meal_dairy, 4)  OVER (ORDER BY ts_hour) AS dairy_lag_4h,
+        lag(meal_dairy, 8)  OVER (ORDER BY ts_hour) AS dairy_lag_8h,
+        lag(meal_dairy, 24) OVER (ORDER BY ts_hour) AS dairy_lag_24h,
+
+        lag(meal_wheat, 4)  OVER (ORDER BY ts_hour) AS wheat_lag_4h,
+        lag(meal_wheat, 8)  OVER (ORDER BY ts_hour) AS wheat_lag_8h,
+        lag(meal_wheat, 24) OVER (ORDER BY ts_hour) AS wheat_lag_24h,
+
+        lag(meal_soy, 4)    OVER (ORDER BY ts_hour) AS soy_lag_4h,
+        lag(meal_soy, 8)    OVER (ORDER BY ts_hour) AS soy_lag_8h,
+        lag(meal_soy, 24)   OVER (ORDER BY ts_hour) AS soy_lag_24h,
+
+        lag(meal_egg, 4)    OVER (ORDER BY ts_hour) AS egg_lag_4h,
+        lag(meal_egg, 8)    OVER (ORDER BY ts_hour) AS egg_lag_8h,
+        lag(meal_egg, 24)   OVER (ORDER BY ts_hour) AS egg_lag_24h
+      FROM flags
+    ),
+    rolls AS (
+      SELECT
+        *,
+        SUM(meal_dairy) OVER (ORDER BY ts_hour ROWS BETWEEN 5 PRECEDING AND CURRENT ROW) AS dairy_roll_6h,
+        SUM(meal_dairy) OVER (ORDER BY ts_hour ROWS BETWEEN 23 PRECEDING AND CURRENT ROW) AS dairy_roll_24h,
+
+        SUM(meal_wheat) OVER (ORDER BY ts_hour ROWS BETWEEN 5 PRECEDING AND CURRENT ROW) AS wheat_roll_6h,
+        SUM(meal_wheat) OVER (ORDER BY ts_hour ROWS BETWEEN 23 PRECEDING AND CURRENT ROW) AS wheat_roll_24h,
+
+        SUM(meal_soy) OVER (ORDER BY ts_hour ROWS BETWEEN 5 PRECEDING AND CURRENT ROW) AS soy_roll_6h,
+        SUM(meal_soy) OVER (ORDER BY ts_hour ROWS BETWEEN 23 PRECEDING AND CURRENT ROW) AS soy_roll_24h,
+
+        SUM(meal_egg) OVER (ORDER BY ts_hour ROWS BETWEEN 5 PRECEDING AND CURRENT ROW) AS egg_roll_6h,
+        SUM(meal_egg) OVER (ORDER BY ts_hour ROWS BETWEEN 23 PRECEDING AND CURRENT ROW) AS egg_roll_24h
+      FROM lags
+    )
+    SELECT
+      ts_hour,
+      date,
+      pain_max,
+      pain_avg,
+      sleep_hours,
+      sleep_quality,
+      stress,
+      meal_events,
+      meal_dairy, meal_wheat, meal_soy, meal_egg, meal_shellfish,
+
+      COALESCE(dairy_lag_4h, 0)  AS dairy_lag_4h,
+      COALESCE(dairy_lag_8h, 0)  AS dairy_lag_8h,
+      COALESCE(dairy_lag_24h, 0) AS dairy_lag_24h,
+
+      COALESCE(wheat_lag_4h, 0)  AS wheat_lag_4h,
+      COALESCE(wheat_lag_8h, 0)  AS wheat_lag_8h,
+      COALESCE(wheat_lag_24h, 0) AS wheat_lag_24h,
+
+      COALESCE(soy_lag_4h, 0)    AS soy_lag_4h,
+      COALESCE(soy_lag_8h, 0)    AS soy_lag_8h,
+      COALESCE(soy_lag_24h, 0)   AS soy_lag_24h,
+
+      COALESCE(egg_lag_4h, 0)    AS egg_lag_4h,
+      COALESCE(egg_lag_8h, 0)    AS egg_lag_8h,
+      COALESCE(egg_lag_24h, 0)   AS egg_lag_24h,
+
+      COALESCE(dairy_roll_6h, 0)  AS dairy_roll_6h,
+      COALESCE(dairy_roll_24h, 0) AS dairy_roll_24h,
+      COALESCE(wheat_roll_6h, 0)  AS wheat_roll_6h,
+      COALESCE(wheat_roll_24h, 0) AS wheat_roll_24h,
+      COALESCE(soy_roll_6h, 0)    AS soy_roll_6h,
+      COALESCE(soy_roll_24h, 0)   AS soy_roll_24h,
+      COALESCE(egg_roll_6h, 0)    AS egg_roll_6h,
+      COALESCE(egg_roll_24h, 0)   AS egg_roll_24h
+    FROM rolls
+    ORDER BY ts_hour;
+    """)
+
+    n = con.execute("SELECT COUNT(*) FROM features_hourly").fetchone()[0]
+    print(f"features_hourly: {n} rows")
+
+
+if __name__ == '__main__':
+    main()

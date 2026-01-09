@@ -1,0 +1,17 @@
+pandas
+numpy
+requests
+duckdb
+pyarrow
+thefuzz
+scikit-learn
+statsmodels
+shap
+matplotlib
+seaborn
+fastparquet
+pdfplumber
+pytest
+python-dateutil
+tqdm
+chromadb

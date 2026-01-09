@@ -1,1 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
 llm/.venv/
+
+# IDEs
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+
+# pytest
+.pytest_cache/
+
+# build
+dist/
+build/
+*.egg-info/
+
+# Data and credentials (ignore sensitive or large raw files)
+# Keep curated/ if you intentionally commit processed outputs; otherwise ignore data/raw/ or specific large dirs
+data/raw/
+data/secrets/
+data/credentials.json
+
+# Database and local datastore files
+*.sqlite
+*.db
+*.duckdb
+
+# LLM/pdf artifacts and local caches
+llm/data/pdfs/.venv/
+llm/data/pdfs/*.pkl
+
+# dotenv
+.env
+
+# Git LFS pointer files (when using LFS)
+.gitattributes

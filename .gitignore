@@ -48,3 +48,4 @@ llm/data/pdfs/*.pkl
 
 # Git LFS pointer files (when using LFS)
 .gitattributes
+scripts/copilot/henryfood-key.json

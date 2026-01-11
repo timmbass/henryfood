@@ -1,0 +1,6 @@
+gspread
+pandas
+oauth2client
+duckdb
+pyyaml
+pyarrow

@@ -6,6 +6,9 @@ on:
       sheet:
         description: 'Google Sheet key or full URL (optional; can use SHEET_ID secret)'
         required: false
+      worksheet:
+        description: 'Worksheet/tab name (optional; can use WORKSHEET secret)'
+        required: false
   schedule:
     - cron: '15 2 * * *' # daily at 02:15 UTC
 
@@ -22,7 +25,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install gspread pandas oauth2client
+        run: pip install gspread pandas oauth2client duckdb pyyaml pyarrow
 
       - name: Write Google creds
         env:
@@ -35,9 +38,15 @@ jobs:
       - name: Run sync script
         env:
           SHEET_IN: ${{ github.event.inputs.sheet || secrets.SHEET_ID }}
+          WORKSHEET_IN: ${{ github.event.inputs.worksheet || secrets.WORKSHEET }}
         run: |
           if [ -z "$SHEET_IN" ]; then echo "Sheet not provided via workflow input or SHEET_ID secret"; exit 1; fi
-          python scripts/tools/sync_google_sheet.py "$SHEET_IN" --creds scripts/data/gspread_credentials.json --target scripts/data/raw/meals.json
+          CMD=(python scripts/tools/sync_google_sheet.py "$SHEET_IN" --creds scripts/data/gspread_credentials.json --target scripts/data/raw/meals.json)
+          if [ -n "$WORKSHEET_IN" ]; then
+            CMD+=(--worksheet "$WORKSHEET_IN")
+          fi
+          echo "Running: ${CMD[*]}"
+          "${CMD[@]}"
 
       - name: Commit and push changes
         run: |

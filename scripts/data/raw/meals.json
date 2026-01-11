@@ -1,0 +1,372 @@
+[
+  {
+    "Date": "2025-12-20",
+    "Breakfast": "Cheerios, milk, brioche bun, dairy milk chocolate",
+    "Lunch": "Pizza Hut ham and pineapple pizza, Fruit Shoot, mango, chocolate cake, mince pie",
+    "Dinner": "Chili con carne, rice, avacado, sour cream, carrot, cucumber",
+    "Snack": "Tuc crackers",
+    "Sleep": "Average",
+    "Stress": "High",
+    "Stomach Pain": "5"
+  },
+  {
+    "Date": "2025-12-21",
+    "Breakfast": "Cheerios, Milk, Bread, butter, jam,  Pizza Hut Hawaiian Pizza, sultanas",
+    "Lunch": "Pasta, ham, leeks, cheese, bell peppers",
+    "Dinner": "Mini pizzas, prawn tempora, ketchup, star nuggets, cucumber, carrots",
+    "Snack": "Fangtastics",
+    "Sleep": "Poor",
+    "Stress": "Medium",
+    "Stomach Pain": "7"
+  },
+  {
+    "Date": "2025-12-22",
+    "Breakfast": "Belvita, Cheerios, Milk",
+    "Lunch": "Chicken schnitzel, fries, grapes",
+    "Dinner": "Hot dog, cheese, ketchup, risotto, sausage, peppers, squash",
+    "Snack": "apple slice bars,",
+    "Sleep": "Poor",
+    "Stress": "High",
+    "Stomach Pain": "8"
+  },
+  {
+    "Date": "2025-12-23",
+    "Breakfast": "granola, almonds, peanuts, chia seeds, flax seeds, oil, honey, yogurt, orange juice",
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": "Poor",
+    "Stress": "Medium",
+    "Stomach Pain": "6"
+  },
+  {
+    "Date": "2025-12-24",
+    "Breakfast": "Belvita, Cheerios, Milk",
+    "Lunch": null,
+    "Dinner": "Beef, pork, lasagna, potatoes, cream, eggs, ham, ementaller",
+    "Snack": "puff pastry, hotdog, lindt milk chocolate",
+    "Sleep": "Poor",
+    "Stress": "High",
+    "Stomach Pain": "7"
+  },
+  {
+    "Date": "2025-12-25",
+    "Breakfast": "Belvita, Cheerios, Milk",
+    "Lunch": "Turkey, cranberry sauce, carrott, brussel sprouts, mash potatoes, ham",
+    "Dinner": "Turkey, cranberry sauce, carrott, brussel sprouts, mash potatoes, ham",
+    "Snack": null,
+    "Sleep": "Poor",
+    "Stress": "High",
+    "Stomach Pain": "7"
+  },
+  {
+    "Date": "2025-12-26",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2025-12-27",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2025-12-28",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2025-12-29",
+    "Breakfast": "oatmeal, rasins, milk, cinnamon",
+    "Lunch": "Fritata, sausage, potatoes, cheddar cheese.",
+    "Dinner": "Coconut Chicken Curry, rice",
+    "Snack": "popcorn, haribos, apple slice bar",
+    "Sleep": "Good",
+    "Stress": "Low",
+    "Stomach Pain": "10"
+  },
+  {
+    "Date": "2025-12-30",
+    "Breakfast": "Pizza Hut Hawaiian pizza",
+    "Lunch": "braised turkey, cheese, quesadilla",
+    "Dinner": "Chicken burger, carrot, potato",
+    "Snack": "dried mango",
+    "Sleep": "Average",
+    "Stress": "Medium",
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2025-12-31",
+    "Breakfast": "Pizza Hut Hawaiian pizza",
+    "Lunch": "Ham sandwich",
+    "Dinner": "Hotdog, cheese, puff pastry, ice cream, maltesers",
+    "Snack": null,
+    "Sleep": "Poor",
+    "Stress": "High",
+    "Stomach Pain": "9"
+  },
+  {
+    "Date": "2026-01-01",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-02",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-03",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-04",
+    "Breakfast": "Belvita",
+    "Lunch": "Chinese Noodle, soy, chicken, pepper, carrot",
+    "Dinner": "Chicken Kiev, potato, sweet potato, broccoli, cheese, corn",
+    "Snack": "Tuc crackers",
+    "Sleep": "Average",
+    "Stress": "Medium",
+    "Stomach Pain": "7"
+  },
+  {
+    "Date": "2026-01-05",
+    "Breakfast": "Belvita, cheerios, milk",
+    "Lunch": "Ham and cheese quesadilla, apple",
+    "Dinner": "Dominos pizza, ham, meatball, mushroom",
+    "Snack": "tea with milk, Marshmallows, peanuts, dried mango, sweet and salty popcorn",
+    "Sleep": "Average",
+    "Stress": "Low",
+    "Stomach Pain": "6"
+  },
+  {
+    "Date": "2026-01-06",
+    "Breakfast": "Belvita, cheerios, milk",
+    "Lunch": "Chicken, tomato sauce, green beans, carrots, ice cream, tortilla",
+    "Dinner": "Dominos pizza, ham, meatball, mushroom, sweet potato",
+    "Snack": "dried mango",
+    "Sleep": "Average",
+    "Stress": "Medium",
+    "Stomach Pain": "8"
+  },
+  {
+    "Date": "2026-01-07",
+    "Breakfast": "Oatmeal, rasins, milk, cinnamon",
+    "Lunch": "beef, corn, rice, lettuce, tortilla",
+    "Dinner": "spinach, chicken, pepper, borsin cheese, pasta",
+    "Snack": "dried mango, breadsticks, tea biscuits",
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-08",
+    "Breakfast": "Oatmeal, rasins, milk, cinnamon",
+    "Lunch": "chicken, butter noodles, carrots",
+    "Dinner": "chinese stirfry, beef, pork, garlic, ginger, spring onion, soy, chicken stock, courgette, bell pepper",
+    "Snack": "go ahead fruit bake apple, salt and vinegar rice cake, ritz crackers",
+    "Sleep": "Average",
+    "Stress": "High",
+    "Stomach Pain": "9"
+  },
+  {
+    "Date": "2026-01-09",
+    "Breakfast": "toast, butter, milk",
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-10",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-07",
+    "Breakfast": "Oatmeal, rasins, milk, cinnamon",
+    "Lunch": "beef, corn, rice, lettuce, tortilla, cinnamon & Coco tray bake",
+    "Dinner": "spinach, chicken, pepper, borsin cheese, pasta",
+    "Snack": "dried mango, breadsticks, tea biscuits",
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-08",
+    "Breakfast": "Oatmeal, rasins, milk, cinnamon",
+    "Lunch": "chicken, butter noodles, carrots, orange sponge cake with custard",
+    "Dinner": "chinese stirfry, beef, pork, garlic, ginger, spring onion, soy, chicken stock, courgette, bell pepper",
+    "Snack": "go ahead fruit bake apple, salt and vinegar rice cake, ritz crackers",
+    "Sleep": "Average",
+    "Stress": "High",
+    "Stomach Pain": "9"
+  },
+  {
+    "Date": "2026-01-09",
+    "Breakfast": "toast, butter, milk",
+    "Lunch": "battered fish filet, tomato sauce, chips, baked beans, straberry ice cream with apple and berry compote",
+    "Dinner": "Cottage pie (mince chicken potato, cheese, beer, onion, celery, flour, milk, garlic)",
+    "Snack": "popcorn, tony's chocoloney milk chocolate bar 100g,",
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-10",
+    "Breakfast": "croissant, milk, toast",
+    "Lunch": "Cottage pie (mince chicken potato, cheese, beer, onion, celery, flour, milk, garlic), rice",
+    "Dinner": "Chicken fried rice (chicken, soy, oyster sauce, honey, green beans, pepper, garlic, ginger, onions)",
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-11",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-12",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-13",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-14",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-15",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-16",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-17",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-18",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-19",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-20",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  },
+  {
+    "Date": "2026-01-21",
+    "Breakfast": null,
+    "Lunch": null,
+    "Dinner": null,
+    "Snack": null,
+    "Sleep": null,
+    "Stress": null,
+    "Stomach Pain": null
+  }
+]

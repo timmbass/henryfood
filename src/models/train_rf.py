@@ -115,6 +115,24 @@ def build_labels_from_symptoms(meals_df: pd.DataFrame, symptoms_df: pd.DataFrame
     return meals
 
 
+def build_labels_from_meal_columns(meals_df: pd.DataFrame, symptom_col: str = "pain", threshold: float = 0.0) -> pd.DataFrame:
+    """Derive meal-level labels directly from a symptom column present in the meals diary.
+
+    - symptom_col: name of numeric column in `meals_df` containing severity (or 0/1).
+    - threshold: for binary label, consider value > threshold as positive.
+
+    Returns a copy of the meals dataframe with `meal_datetime`, `label_bin`, and `label_reg`.
+    """
+    meals = meals_df.copy()
+    meals["meal_datetime"] = _parse_datetime_cols(meals)
+    if symptom_col not in meals.columns:
+        raise ValueError(f"Symptom column '{symptom_col}' not found in meals")
+    vals = pd.to_numeric(meals[symptom_col], errors="coerce").fillna(0.0).astype(float)
+    meals["label_reg"] = vals
+    meals["label_bin"] = (vals > float(threshold)).astype(int)
+    return meals
+
+
 def time_holdout_split(df: pd.DataFrame, time_col: str = "meal_datetime", test_frac: float = 0.2):
     df2 = df.sort_values(time_col).reset_index(drop=True)
     n = len(df2)
@@ -249,11 +267,12 @@ def run_train(args) -> dict:
     meals_path = Path(args.meals)
     meals = pd.read_parquet(meals_path) if meals_path.suffix.lower() in ('.parquet', '.pq') else pd.read_csv(meals_path)
 
-    # symptoms required for labeling in this script
-    if not args.symptoms:
-        raise ValueError('Provide --symptoms (CSV/Parquet of symptom events) for meal-level labeling')
-    syms_path = Path(args.symptoms)
-    syms = pd.read_parquet(syms_path) if syms_path.suffix.lower() in ('.parquet', '.pq') else pd.read_csv(syms_path)
+    # If an external symptoms file is provided, load it. Otherwise optionally infer
+    # symptom labels from the meals diary itself (e.g. pain, sleep, stress columns).
+    syms = None
+    if args.symptoms:
+        syms_path = Path(args.symptoms)
+        syms = pd.read_parquet(syms_path) if syms_path.suffix.lower() in ('.parquet', '.pq') else pd.read_csv(syms_path)
 
     # parse windows and lag-days
     windows = [float(x) for x in (args.windows.split(',') if isinstance(args.windows, str) else args.windows)]
@@ -266,11 +285,26 @@ def run_train(args) -> dict:
     if 'canonical' not in ml_df.columns or 'canonical' not in meals.columns:
         raise ValueError("Both meals and ML parquet must have 'canonical' column to join")
 
+    # If user requested inference from meals or if the symptom column is present in
+    # the meals file, build labels from the meals diary now (independent of label window).
+    inferred_meals_labeled = None
+    if getattr(args, 'infer_from_meals', False) or (getattr(args, 'symptom_col', None) in meals.columns):
+        inferred_meals_labeled = build_labels_from_meal_columns(meals, symptom_col=getattr(args, 'symptom_col', 'pain'), threshold=getattr(args, 'symptom_threshold', 0.0))
+
     results = {}
     for w in windows:
         label_window = float(w)
         logger.info('Running training for window=%.1fh', label_window)
-        meals_labeled = build_labels_from_symptoms(meals, syms, window_hours=label_window)
+
+        # Prefer external symptoms file (event-style) when provided, otherwise use
+        # the precomputed inferred labels from the meals diary.
+        if syms is not None:
+            meals_labeled = build_labels_from_symptoms(meals, syms, window_hours=label_window)
+        elif inferred_meals_labeled is not None:
+            meals_labeled = inferred_meals_labeled.copy()
+        else:
+            raise ValueError('Provide --symptoms or use --infer-from-meals (or ensure symptom column is present in meals)')
+
         merged = meals_labeled.merge(ml_df, on='canonical', how='left')
         if 'meal_datetime' not in merged.columns:
             merged['meal_datetime'] = _parse_datetime_cols(merged)
@@ -282,16 +316,26 @@ def run_train(args) -> dict:
 
         # add lag features
         merged = _add_lag_features(merged, feat_cols, lag_days)
-        # extend feat_cols with lag columns
+        # extend feat_cols with lag columns (only use base nutrient cols to avoid nested lag names)
+        base_nutrient_cols = [c for c in DEFAULT_NUTRIENT_COLS if c in merged.columns]
         for d in lag_days:
-            for c in feat_cols[:]:
+            for c in base_nutrient_cols:
                 merged_col = f'lag{d}d_{c}'
-                feat_cols.append(merged_col)
+                if merged_col not in feat_cols:
+                    feat_cols.append(merged_col)
 
         # time split
         train_df, test_df = time_holdout_split(merged, time_col='meal_datetime', test_frac=args.test_frac)
-        X_train = train_df[feat_cols].copy()
-        X_test = test_df[feat_cols].copy()
+
+        # Ensure feature columns exist in the dataframe and drop those that are
+        # entirely missing in the training set (avoid imputer warnings / errors).
+        available_feat_cols = [c for c in feat_cols if c in merged.columns]
+        # keep only features that have at least one non-missing value in the training partition
+        feat_cols_final = [c for c in available_feat_cols if train_df[c].notna().any()]
+        if not feat_cols_final:
+            raise ValueError('No feature columns with observed values in training set after dropping all-NaN columns')
+        X_train = train_df[feat_cols_final].copy()
+        X_test = test_df[feat_cols_final].copy()
         target_col = 'label_bin' if args.target == 'binary' else 'label_reg'
         y_train = train_df[target_col].astype(float)
         y_test = test_df[target_col].astype(float)
@@ -318,10 +362,11 @@ def run_train(args) -> dict:
         meta = {'metrics': metrics, 'n_train': len(X_train), 'n_test': len(X_test), 'seed': args.seed, 'window_hours': label_window, 'lag_days': lag_days}
         with open(out_dir / 'metrics.json', 'w', encoding='utf8') as fh:
             json.dump(meta, fh, indent=2, ensure_ascii=False)
+        # write the actual features used (after dropping all-NaN columns)
         with open(out_dir / 'features.json', 'w', encoding='utf8') as fh:
-            json.dump(feat_cols, fh, indent=2, ensure_ascii=False)
+            json.dump(feat_cols_final, fh, indent=2, ensure_ascii=False)
         if importances is not None:
-            pd.DataFrame({'feature': feat_cols, 'importance': importances}).to_csv(out_dir / 'feature_importances.csv', index=False)
+            pd.DataFrame({'feature': feat_cols_final, 'importance': importances}).to_csv(out_dir / 'feature_importances.csv', index=False)
 
         # attempt SHAP
         if getattr(args, 'compute_shap', False):
@@ -347,6 +392,10 @@ def main(argv=None):
     p.add_argument('--out-dir', default='models/rf_out')
     p.add_argument('--seed', type=int, default=42)
     p.add_argument('--test-frac', type=float, default=0.2)
+    # New: allow inferring symptom labels from the meals diary itself
+    p.add_argument('--infer-from-meals', help='Infer symptom labels from a column in the meals diary (e.g. pain)', action='store_true')
+    p.add_argument('--symptom-col', help='Column name in meals to use as symptom severity (default: pain)', default='pain')
+    p.add_argument('--symptom-threshold', help='Threshold above which symptom is considered positive for binary labels (default: 0.0)', type=float, default=0.0)
     args = p.parse_args(argv)
     results = run_train(args)
     print(json.dumps(results, indent=2))

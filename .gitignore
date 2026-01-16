@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# DuckDB
+*.duckdb
+*.duckdb.wal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Reports (keep template but ignore generated)
+reports/weekly.md
+
+# Temporary files
+tmp/
+*.tmp
+
+# Data (keep structure but ignore actual data files in production)
+# Uncomment these if you don't want to commit data:
+# data/raw/*.csv
+# data/curated/

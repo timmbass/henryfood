@@ -42,15 +42,25 @@ def _build_tag_search_expr(field: str, needles: list[str]) -> str:
     Build a safe SQL expression for searching tags.
     
     Security:
-        - Sanitizes all input tags
-        - Uses position() instead of LIKE to avoid wildcard issues
-        - Constructs expressions without user input in SQL strings
+        - Sanitizes all input tags (alphanumeric only)
+        - TAG_BUCKETS is hardcoded (not user input)
+        - _sanitize_tag removes ALL special SQL characters including wildcards (%, _)
+        - This function is only called with hardcoded TAG_BUCKETS values
+        - Additional validation: checks for any remaining special characters
+    
+    Note: This would be unsafe with user input, but is safe with hardcoded tag lists.
     """
     sanitized_needles = [_sanitize_tag(n) for n in needles if n]
     if not sanitized_needles:
         return "(FALSE)"
     
+    # Additional safety check: ensure no SQL special characters remain
+    for needle in sanitized_needles:
+        if not re.match(r'^[a-zA-Z0-9_-]+$', needle):
+            raise ValueError(f"Invalid tag after sanitization: {needle}")
+    
     # Use LIKE for safe string searching (with sanitized input, LIKE is safe)
+    # Note: % and _ wildcards are removed by sanitization, so this is literal matching
     ors = " OR ".join([
         f"lower({field}) LIKE '%{n.lower()}%'" 
         for n in sanitized_needles

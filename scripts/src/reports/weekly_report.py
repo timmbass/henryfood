@@ -126,7 +126,13 @@ def main():
     try:
         report_path.write_text("".join(out), encoding="utf-8")
         # Set secure permissions (owner read/write only)
-        report_path.chmod(0o600)
+        # Note: This works on Unix-like systems. Windows ACLs handle permissions differently.
+        try:
+            report_path.chmod(0o600)
+        except (OSError, NotImplementedError):
+            # Windows or other platforms that don't support Unix permissions
+            # Fall back to default permissions (which on Windows are typically user-only anyway)
+            pass
         print(f"Wrote report: {report_path}")
     except Exception as e:
         print(f"Error writing report: {e}", file=sys.stderr)

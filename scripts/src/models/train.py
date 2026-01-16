@@ -73,12 +73,15 @@ def main():
         return
 
     # Train model with balanced class weights
+    # Note: random_state=42 used for reproducibility in testing/debugging
+    # In production, consider using: random_state=int.from_bytes(os.urandom(4), 'big')
+    # For this single-user health tracking system, reproducibility is preferred
     model = Pipeline([
         ("scaler", StandardScaler(with_mean=True, with_std=True)),
         ("clf", LogisticRegression(
             max_iter=200, 
             class_weight="balanced",
-            random_state=42  # For reproducibility
+            random_state=42  # For reproducibility - see note above
         ))
     ])
     

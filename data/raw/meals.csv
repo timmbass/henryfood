@@ -1,0 +1,6 @@
+ts,meal_id,items,tags,notes
+2026-01-05T07:30:00Z,m1,"toast with butter","wheat|dairy",""
+2026-01-05T12:10:00Z,m2,"pasta with cheese","wheat|dairy",""
+2026-01-06T08:00:00Z,m3,"oatmeal with milk","dairy",""
+2026-01-06T13:00:00Z,m4,"chicken salad","",""
+2026-01-07T07:45:00Z,m5,"eggs and toast","egg|wheat",""

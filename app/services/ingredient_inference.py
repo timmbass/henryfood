@@ -327,8 +327,9 @@ INGREDIENT_KNOWLEDGE_BASE: dict[str, list[tuple[str, float, str]]] = {
     ],
 }
 
-# Partial-match knowledge for generic ingredient detection
-PARTIAL_MATCH_RULES: list[tuple[str, list[tuple[str, float]]]] = [
+# Partial-match rules: (keyword_substring, [(ingredient_name, confidence, source_method)])
+# Used as a fallback when no exact or word-overlap match is found in INGREDIENT_KNOWLEDGE_BASE.
+PARTIAL_MATCH_RULES: list[tuple[str, list[tuple[str, float, str]]]] = [
     ("egg", [("eggs", 0.85, "rule_based")]),
     ("chicken", [("chicken", 0.85, "rule_based")]),
     ("beef", [("beef", 0.85, "rule_based")]),

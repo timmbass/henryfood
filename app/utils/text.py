@@ -102,7 +102,8 @@ def split_food_items(text: str) -> list[str]:
             protected = pattern.sub(placeholder, protected)
             placeholders[placeholder] = compound
 
-    # Split on comma/and
+    # Split on ", and ", ", ", or bare " and " (with word boundaries via (?<!\w)/(?!\w)
+    # to avoid splitting compound foods like "mac and cheese" that weren't caught above).
     parts = re.split(r",\s*(?:and\s+)?|(?<!\w)\s+and\s+(?!\w)", protected, flags=re.IGNORECASE)
 
     # Restore placeholders

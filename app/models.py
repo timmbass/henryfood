@@ -10,13 +10,18 @@ from sqlalchemy.orm import declarative_base, relationship
 Base = declarative_base()
 
 
+def _utcnow() -> datetime.datetime:
+    """Return current UTC time as a naive datetime (SQLite compatible)."""
+    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+
+
 class FoodLogEntry(Base):
     """Top-level food diary entry (one per meal/eating occasion)."""
 
     __tablename__ = "food_log_entries"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None), nullable=False)
+    created_at = Column(DateTime, default=_utcnow, nullable=False)
     entry_date = Column(Date, nullable=True)
     entry_time = Column(Time, nullable=True)
     meal_type = Column(String(50), nullable=True)  # breakfast/lunch/dinner/snack

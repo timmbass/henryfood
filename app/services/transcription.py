@@ -96,7 +96,7 @@ class WhisperSTTProvider(STTProvider):
             text = " ".join(seg.text for seg in segments).strip()
             print(f"Transcribed: {text}")
             return text
-        except Exception as exc:  # noqa: BLE001
+        except (ImportError, OSError, RuntimeError, ValueError, EOFError) as exc:
             logger.error("STT failed: %s — falling back to typed input", exc)
             return TypedInputProvider().transcribe(prompt)
 

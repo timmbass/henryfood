@@ -260,7 +260,15 @@ class OllamaParser(FoodParser):
             response_text = data.get("response", "")
             parsed_json = json.loads(response_text)
             return self._json_to_schema(raw_text, parsed_json)
-        except Exception as exc:  # noqa: BLE001
+        except (
+            urllib.error.URLError,
+            json.JSONDecodeError,
+            TimeoutError,
+            OSError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ) as exc:
             logger.warning("Ollama parse failed (%s), falling back to rule-based", exc)
             return self.fallback.parse(raw_text)
 

@@ -1,0 +1,20 @@
+# Food diary app dependencies
+typer>=0.12.0
+rich>=13.0.0
+pydantic>=2.0.0
+sqlalchemy>=2.0.0
+python-dotenv>=1.0.0
+
+# Optional: Streamlit UI
+streamlit>=1.28.0
+
+# Optional: Speech-to-text
+# faster-whisper>=0.10.0
+# sounddevice>=0.4.6
+# numpy>=1.24.0
+
+# Optional: Ollama (uses stdlib urllib, no extra deps)
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0

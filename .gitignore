@@ -39,3 +39,8 @@ tmp/
 # Uncomment these if you don't want to commit data:
 # data/raw/*.csv
 # data/curated/
+
+# Food diary app - generated database and exports
+data/food_diary.db
+data/food_diary_export.csv
+data/*.db

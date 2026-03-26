@@ -172,9 +172,9 @@ class SounddeviceRecorder(Recorder):
         output_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = (self._started_at or datetime.now(tz=timezone.utc)).strftime(
-            "%Y%m%dT%H%M%SZ"
+            "%Y-%m-%d_%H-%M-%S"
         )
-        filename = f"recording_{timestamp}.wav"
+        filename = f"{timestamp}.wav"
         path = output_dir / filename
 
         audio = np.concatenate(self._frames, axis=0)

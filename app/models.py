@@ -16,6 +16,11 @@ from pydantic import BaseModel, Field
 class RecordingMetadata(BaseModel):
     """Metadata for a single WAV recording.
 
+    This model is intentionally *not* frozen: ``transcription`` is set
+    after recording (``meta.transcription = "..."``) once the Whisper
+    phase runs.  Use ``model_copy(update={"transcription": text})`` if
+    you need an immutable copy instead of mutating in place.
+
     Attributes:
         file_path: Absolute path to the saved WAV file.
         recorded_at: UTC timestamp when the recording started.

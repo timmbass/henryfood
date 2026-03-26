@@ -15,21 +15,24 @@ from __future__ import annotations
 import logging
 import signal
 import threading
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from app.config import AppConfig
 from app.gpio_button import GpioButtonWrapper
 from app.recorder import Recorder, SounddeviceRecorder
 from app.utils import ensure_recordings_dir
 
+if TYPE_CHECKING:
+    from app.transfer import WavTransfer
+
 logger = logging.getLogger(__name__)
 
 
 class CaptureWorkflow:
-    """Orchestrates GPIO button events and audio recording.
+    """Orchestrates GPIO button events, audio recording, and LAN transfer.
 
     Press the button  → recording starts.
-    Release the button → recording stops and the WAV file is saved.
+    Release the button → recording stops, WAV is saved, transfer is queued.
     Ctrl-C / SIGTERM   → graceful shutdown.
     """
 
@@ -37,6 +40,7 @@ class CaptureWorkflow:
         self,
         config: AppConfig,
         recorder: Optional[Recorder] = None,
+        transfer: Optional["WavTransfer"] = None,
     ) -> None:
         self._config = config
         self._recorder: Recorder = recorder or SounddeviceRecorder(config)
@@ -47,11 +51,22 @@ class CaptureWorkflow:
         )
         self._stop_event = threading.Event()
 
+        if transfer is not None:
+            self._transfer: Optional["WavTransfer"] = transfer
+        elif config.transfer_enabled:
+            from app.transfer import WavTransfer  # noqa: PLC0415 — lazy import
+
+            self._transfer = WavTransfer(config)
+        else:
+            self._transfer = None
+
     # -- public API ----------------------------------------------------------
 
     def run(self) -> None:
         """Block until SIGINT or SIGTERM is received."""
         ensure_recordings_dir(self._config)
+        if self._transfer is not None:
+            self._transfer.retry_pending()
         logger.info(
             "Voice capture ready on GPIO %d — press and hold the button to record.",
             self._config.gpio_pin,
@@ -79,6 +94,8 @@ class CaptureWorkflow:
         meta = self._recorder.stop()
         if meta is not None:
             logger.info("Recording saved: %s (%.1f s)", meta.file_path.name, meta.duration_seconds)
+            if self._transfer is not None:
+                self._transfer.push(meta.file_path)
         else:
             logger.info("Recording discarded (empty or too short)")
 

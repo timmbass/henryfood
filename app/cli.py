@@ -39,6 +39,9 @@ def run(
         "recordings", "--recordings-dir", "-o", help="Directory for saved WAV files."
     ),
     log_level: str = typer.Option("INFO", "--log-level", "-l", help="Log level (DEBUG/INFO/…)."),
+    transfer: bool = typer.Option(
+        True, "--transfer/--no-transfer", help="Transfer WAV files to the i5 via rsync."
+    ),
 ) -> None:
     """Start the button-triggered recording loop.
 
@@ -53,6 +56,7 @@ def run(
         max_duration_seconds=max_duration,
         recordings_dir=recordings_dir,
         log_level=log_level,
+        transfer_enabled=transfer,
     )
 
     # Set up logging before anything else

@@ -1,220 +1,105 @@
-# HenryFood — Raspberry Pi Food Diary Voice Recorder
+# HenryFood
 
-A button-triggered voice capture system for the HenryFood food diary, designed to run on a **Raspberry Pi**.
+Personal food-diary system built around two independent components:
 
-Press and hold a tactile push button wired to a GPIO pin — audio is captured while the button is held and saved as a timestamped WAV file when released.  A future phase will transcribe these recordings and convert them into structured food diary entries.
+| Component | Hardware | Purpose |
+|-----------|----------|---------|
+| **`app/`** | Raspberry Pi | Button-triggered voice capture → timestamped WAV files |
+| **`scripts/`** | i5 laptop / desktop | Health analytics: CSV → features → model → weekly report |
+
+Data flows one way: WAV files produced on the Pi are transcribed (future phase) and appended to `data/raw/meals.csv`; `scripts/` reads those CSVs at run time.
+
+---
 
 ## Repository Layout
 
 ```
 henryfood/
-├── app/                  # Button recorder application (new)
-│   ├── cli.py            # Typer CLI — `python -m app.cli run`
-│   ├── config.py         # AppConfig (Pydantic model)
-│   ├── models.py         # RecordingMetadata model
-│   ├── utils.py          # Logger setup, filesystem helpers
-│   ├── gpio_button.py    # gpiozero button wrapper
+├── app/                  # Pi capture component
+│   ├── cli.py            # Entry point — `python -m app.cli run`
+│   ├── config.py         # AppConfig (Pydantic, validated at startup)
+│   ├── models.py         # RecordingMetadata
 │   ├── recorder.py       # Recorder ABC + SounddeviceRecorder
-│   └── main.py           # CaptureWorkflow orchestrator
-├── tests/                # Tests for app/
-├── scripts/              # Health analytics pipeline (DuckDB)
-├── voice/                # Earlier voice-capture prototype
-├── requirements.txt      # Python dependencies
+│   ├── gpio_button.py    # gpiozero button wrapper
+│   ├── main.py           # CaptureWorkflow orchestrator
+│   └── utils.py          # Logger setup, filesystem helpers
+├── tests/                # Tests for app/ (mock sounddevice/gpiozero)
+├── scripts/              # Analytics pipeline (DuckDB) — see scripts/README.md
+├── data/raw/             # CSVs: meals, symptoms, sleep, stress
+├── docs/
+│   ├── specs/system_design.txt   # Original system specification
+│   ├── archive/                  # Historical documents
+│   └── SECURITY.md               # Threat model & hardening guide
+├── archive/voice_prototype/      # Earlier voice-capture prototype (retired)
+├── requirements.txt
 └── README.md
 ```
 
-## Hardware Requirements
+---
 
-- Raspberry Pi (3B+ / 4 / 5) running Raspberry Pi OS
-- USB microphone or USB sound card with mic input
-- Tactile push button wired between **GPIO 17** (BCM) and **GND**
+## Component 1 — Pi Capture (`app/`)
 
-### Wiring
+### Hardware
 
-| Button Pin | Pi Pin            |
-|------------|-------------------|
-| Leg A      | GPIO 17 (pin 11)  |
-| Leg B      | GND (pin 9)       |
+- Raspberry Pi 3B+ / 4 / 5 running Raspberry Pi OS
+- USB microphone
+- Tactile button: GPIO 17 (BCM) → GND (internal pull-up enabled, no resistor needed)
 
-The code enables the internal pull-up resistor — no external resistor needed.
-
-## Quick Start
-
-### 1. Install Dependencies
+### Quick Start
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-### 2. Run the Button Recorder
-
-```bash
 python -m app.cli run
 ```
 
-Press and hold the button to record.  Release to save.  Ctrl-C to exit.
+Press and hold to record. Release to save. Ctrl-C to exit.
 
-### 3. Test Audio (no button needed)
-
-Verify the microphone works without GPIO hardware:
-
-```bash
-python -m app.cli test-audio --duration 5
-```
-
-## CLI Options
-
-```
-python -m app.cli run [OPTIONS]
-```
+### CLI Options
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-g` / `--gpio-pin` | `17` | BCM GPIO pin number |
-| `-r` / `--sample-rate` | `16000` | Audio sample rate in Hz |
+| `-g` / `--gpio-pin` | `17` | BCM GPIO pin |
+| `-r` / `--sample-rate` | `16000` | Audio sample rate (Hz) |
 | `-c` / `--channels` | `1` | Mono (1) or stereo (2) |
-| `-m` / `--max-duration` | `30` | Auto-stop after this many seconds |
-| `-o` / `--recordings-dir` | `recordings` | Directory for WAV files |
-| `-l` / `--log-level` | `INFO` | Log level (DEBUG / INFO / …) |
+| `-m` / `--max-duration` | `30` | Auto-stop cap (seconds) |
+| `--min-duration` | `0.5` | Discard clips shorter than this |
+| `-o` / `--recordings-dir` | `recordings` | Output directory |
+| `-l` / `--log-level` | `INFO` | Log level |
 
-## Configuration Model
-
-All settings are validated at startup via Pydantic:
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `gpio_pin` | int | 17 | BCM GPIO pin (0–27) |
-| `sample_rate` | int | 16 000 | Sample rate in Hz |
-| `channels` | int | 1 | Audio channels |
-| `max_duration_seconds` | float | 30.0 | Hard recording cap |
-| `recordings_dir` | Path | `recordings` | Output directory |
-| `log_level` | str | `INFO` | Python log level |
-
-## Running Tests
+### Running Tests
 
 ```bash
 pip install pytest
 python -m pytest tests/ -v
 ```
 
-Tests mock `sounddevice`, `soundfile`, and `gpiozero` so they run on any machine.
+---
 
-## Health Analytics Pipeline
+## Component 2 — Analytics Pipeline (`scripts/`)
 
-The existing analytics pipeline lives in `scripts/`.  See `scripts/requirements.txt` and the `Makefile` for usage:
+See [`scripts/README.md`](scripts/README.md) for full usage.
 
 ```bash
-cd scripts && make install && make daily
+cd scripts && make install && make daily   # ingest + features
+cd scripts && make weekly                  # train + report
 ```
 
-## Security Features
+---
 
-This pipeline implements multiple security hardening measures:
+## Data Ingestion
 
-### 1. Input Validation
-- CSV file size limits (100MB max)
-- String length limits (1000 chars per field)
-- Numeric range validation (pain 0-10, sleep 0-24h, etc.)
-- Safe timestamp parsing with error handling
+There is no separate ingestion script. The Pi capture component appends entries directly to `data/raw/meals.csv` (and the other CSVs). The analytics pipeline reads those CSVs at run time.
 
-### 2. SQL Injection Prevention
-- Parameterized queries throughout
-- Tag sanitization (alphanumeric only)
-- Safe string construction for dynamic SQL
-- No user input directly in SQL strings
+---
 
-### 3. Path Traversal Protection
-- Path validation against base directory
-- All paths resolved and checked
-- Uses pathlib for safe path manipulation
+## Security
 
-### 4. Data Privacy
-- Local-only storage (no external transmission)
-- Read-only database access for reporting
-- Secure file permissions (0600 for reports)
-- No external API calls
+See [`docs/SECURITY.md`](docs/SECURITY.md) for the full threat model and hardening guide.
 
-### 5. Resource Limits
-- Thread limits on database (max 4)
-- File size limits on CSV input
-- String length limits on all fields
-- Data volume checks in training
+Key controls implemented: parameterized SQL, path-traversal validation, file-size limits, local-only storage, no external API calls.
 
-### 6. Code Quality
-- Type hints throughout
-- Comprehensive error handling
-- Logging for debugging
-- Clean separation of concerns
-
-## Security Best Practices for Users
-
-1. **Keep data local**: Never commit sensitive health data to public repositories
-2. **Backup regularly**: Use encrypted backups for the database
-3. **Limit access**: Use proper file permissions (chmod 600 for sensitive files)
-4. **Review inputs**: Validate any data before ingesting
-5. **Monitor resources**: Check disk space and memory usage
-6. **Update dependencies**: Keep Python packages up to date for security patches
-
-## Automated Security Scanning
-
-This repository includes automated security scanning:
-- CodeQL analysis for vulnerability detection
-- Dependency scanning for known CVEs
-- Code review for security issues
-
-## Privacy Considerations
-
-This is a **personal health tracking system** designed for:
-- Single-user, local operation
-- No cloud storage or transmission
-- No third-party integrations by default
-- Complete user control over data
-
-### HIPAA Compliance Notes
-
-If using for clinical purposes:
-- This tool does NOT provide HIPAA compliance out-of-box
-- Requires additional safeguards (encryption at rest, audit logging, access controls)
-- Consult with compliance experts before clinical use
-
-## Future Hardening Roadmap
-
-Potential enhancements for increased security:
-
-1. **Encryption**
-   - Database encryption at rest
-   - Encrypted backups
-   - Memory encryption for sensitive data
-
-2. **Audit Logging**
-   - Track all data access
-   - Log all modifications
-   - Tamper-evident logging
-
-3. **Access Control**
-   - User authentication
-   - Role-based access
-   - Session management
-
-4. **Data Anonymization**
-   - PII detection and removal
-   - Differential privacy for reports
-   - Secure multi-party computation for group analysis
-
-5. **Secure Development**
-   - Pre-commit hooks for security checks
-   - Automated dependency updates
-   - Continuous security monitoring
-
-## Contributing
-
-When contributing, please:
-1. Run security scanners before submitting PRs
-2. Follow secure coding practices
-3. Add tests for new features
-4. Document security implications of changes
+---
 
 ## License
 
@@ -222,4 +107,4 @@ When contributing, please:
 
 ## Disclaimer
 
-This tool is for personal health tracking and research purposes only. It is not intended as medical advice or diagnosis. Always consult healthcare professionals for medical decisions.
+Personal health tracking only. Not medical advice.

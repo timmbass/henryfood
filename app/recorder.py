@@ -138,6 +138,14 @@ class SounddeviceRecorder(Recorder):
             logger.info("Recording discarded (no audio frames captured)")
             return None
 
+        if duration < self._config.min_duration_seconds:
+            logger.info(
+                "Recording discarded (%.2f s < min %.2f s)",
+                duration,
+                self._config.min_duration_seconds,
+            )
+            return None
+
         return self._save(duration)
 
     @property

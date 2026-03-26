@@ -1,92 +1,112 @@
-# HenryFood Health Analytics Pipeline
+# HenryFood — Raspberry Pi Food Diary Voice Recorder
 
-A secure, privacy-focused health data analytics pipeline for tracking correlations between food intake, sleep, stress, and symptoms.
+A button-triggered voice capture system for the HenryFood food diary, designed to run on a **Raspberry Pi**.
 
-## Overview
+Press and hold a tactile push button wired to a GPIO pin — audio is captured while the button is held and saved as a timestamped WAV file when released.  A future phase will transcribe these recordings and convert them into structured food diary entries.
 
-This pipeline helps identify potential trigger foods and health patterns by:
-- Tracking meals, symptoms, sleep, and stress in a structured timeline
-- Generating lag features to identify delayed reactions (4h, 8h, 24h windows)
-- Training simple interpretable models to identify correlations
-- Generating weekly reports with top signals
-
-## Architecture
+## Repository Layout
 
 ```
 henryfood/
-├── data/
-│   ├── raw/              # CSV input files (meals, symptoms, sleep, stress)
-│   └── curated/          # DuckDB database (henry.duckdb)
-├── reports/              # Generated weekly reports
-├── logs/                 # Pipeline execution logs
-└── scripts/
-    ├── requirements.txt  # Python dependencies
-    ├── Makefile         # Pipeline commands
-    └── src/
-        ├── utils/       # Database and path utilities
-        ├── features/    # Timeline and feature generation
-        ├── models/      # Model training
-        └── reports/     # Report generation
+├── app/                  # Button recorder application (new)
+│   ├── cli.py            # Typer CLI — `python -m app.cli run`
+│   ├── config.py         # AppConfig (Pydantic model)
+│   ├── models.py         # RecordingMetadata model
+│   ├── utils.py          # Logger setup, filesystem helpers
+│   ├── gpio_button.py    # gpiozero button wrapper
+│   ├── recorder.py       # Recorder ABC + SounddeviceRecorder
+│   └── main.py           # CaptureWorkflow orchestrator
+├── tests/                # Tests for app/
+├── scripts/              # Health analytics pipeline (DuckDB)
+├── voice/                # Earlier voice-capture prototype
+├── requirements.txt      # Python dependencies
+└── README.md
 ```
+
+## Hardware Requirements
+
+- Raspberry Pi (3B+ / 4 / 5) running Raspberry Pi OS
+- USB microphone or USB sound card with mic input
+- Tactile push button wired between **GPIO 17** (BCM) and **GND**
+
+### Wiring
+
+| Button Pin | Pi Pin            |
+|------------|-------------------|
+| Leg A      | GPIO 17 (pin 11)  |
+| Leg B      | GND (pin 9)       |
+
+The code enables the internal pull-up resistor — no external resistor needed.
 
 ## Quick Start
 
 ### 1. Install Dependencies
 
 ```bash
-cd scripts
-make install
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### 2. Add Your Data
+### 2. Run the Button Recorder
 
-Edit the CSV files in `data/raw/`:
-- `meals.csv` - Timestamped meal logs with tags
-- `symptoms.csv` - Pain/symptom logs with severity
-- `sleep.csv` - Daily sleep metrics
-- `stress.csv` - Daily stress levels
-
-### 3. Run the Pipeline
-
-Daily (process new data):
 ```bash
-make daily
+python -m app.cli run
 ```
 
-Weekly (train model and generate report):
+Press and hold the button to record.  Release to save.  Ctrl-C to exit.
+
+### 3. Test Audio (no button needed)
+
+Verify the microphone works without GPIO hardware:
+
 ```bash
-make weekly
+python -m app.cli test-audio --duration 5
 ```
 
-View the report:
+## CLI Options
+
+```
+python -m app.cli run [OPTIONS]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-g` / `--gpio-pin` | `17` | BCM GPIO pin number |
+| `-r` / `--sample-rate` | `16000` | Audio sample rate in Hz |
+| `-c` / `--channels` | `1` | Mono (1) or stereo (2) |
+| `-m` / `--max-duration` | `30` | Auto-stop after this many seconds |
+| `-o` / `--recordings-dir` | `recordings` | Directory for WAV files |
+| `-l` / `--log-level` | `INFO` | Log level (DEBUG / INFO / …) |
+
+## Configuration Model
+
+All settings are validated at startup via Pydantic:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `gpio_pin` | int | 17 | BCM GPIO pin (0–27) |
+| `sample_rate` | int | 16 000 | Sample rate in Hz |
+| `channels` | int | 1 | Audio channels |
+| `max_duration_seconds` | float | 30.0 | Hard recording cap |
+| `recordings_dir` | Path | `recordings` | Output directory |
+| `log_level` | str | `INFO` | Python log level |
+
+## Running Tests
+
 ```bash
-cat ../reports/weekly.md
+pip install pytest
+python -m pytest tests/ -v
 ```
 
-## Data Format
+Tests mock `sounddevice`, `soundfile`, and `gpiozero` so they run on any machine.
 
-### meals.csv
-```csv
-ts,meal_id,items,tags,notes
-2026-01-05T07:30:00Z,m1,"toast with butter","wheat|dairy",""
-```
+## Health Analytics Pipeline
 
-### symptoms.csv
-```csv
-ts,pain,location,notes
-2026-01-05T20:30:00Z,7,"stomach","evening pain"
-```
+The existing analytics pipeline lives in `scripts/`.  See `scripts/requirements.txt` and the `Makefile` for usage:
 
-### sleep.csv
-```csv
-date,sleep_hours,wake_ups,sleep_quality
-2026-01-05,7.5,1,7
-```
-
-### stress.csv
-```csv
-date,stress,notes
-2026-01-05,3,"normal day"
+```bash
+cd scripts && make install && make daily
 ```
 
 ## Security Features

@@ -35,6 +35,10 @@ reports/weekly.md
 tmp/
 *.tmp
 
+# Voice recordings
+recordings/
+*.wav
+
 # Data (keep structure but ignore actual data files in production)
 # Uncomment these if you don't want to commit data:
 # data/raw/*.csv

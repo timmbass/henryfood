@@ -69,6 +69,31 @@ def run(
 
 
 @app.command()
+def test_button(
+    gpio_pin: int = typer.Option(17, "--gpio-pin", "-g", help="BCM GPIO pin for the button."),
+    log_level: str = typer.Option("INFO", "--log-level", "-l", help="Log level (DEBUG/INFO/…)."),
+) -> None:
+    """Smoke-test the GPIO button without recording audio.
+
+    Prints/logs every press and release event until you hit Ctrl-C.
+    Useful for verifying the wiring before running the full recorder.
+    """
+    config = AppConfig(gpio_pin=gpio_pin, log_level=log_level)
+
+    from app.utils import setup_logging  # noqa: PLC0415
+
+    setup_logging(config)
+
+    # Late import so missing gpiozero fails here, not during CLI parsing.
+    from app.gpio_button import PiButtonListener  # noqa: PLC0415
+
+    typer.echo(f"Listening for button events on GPIO {gpio_pin} — press Ctrl-C to stop.")
+    listener = PiButtonListener(config)
+    listener.run_forever()
+    typer.echo("Button test finished.")
+
+
+@app.command()
 def test_audio(
     sample_rate: int = typer.Option(16_000, "--sample-rate", "-r", help="Audio sample rate in Hz."),
     channels: int = typer.Option(1, "--channels", "-c", help="Audio channels (1=mono, 2=stereo)."),

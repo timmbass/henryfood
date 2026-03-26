@@ -49,3 +49,11 @@ class AppConfig(BaseModel):
     def _coerce_path(cls, v: object) -> Path:
         """Accept str or Path and normalise to Path."""
         return Path(v) if not isinstance(v, Path) else v
+
+    @field_validator("log_level", mode="before")
+    @classmethod
+    def _normalise_log_level(cls, v: object) -> str:
+        """Accept any case and upper-case it (e.g. 'debug' → 'DEBUG')."""
+        if isinstance(v, str):
+            return v.upper()
+        return v  # type: ignore[return-value]

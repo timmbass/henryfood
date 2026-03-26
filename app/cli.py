@@ -52,7 +52,7 @@ def run(
         channels=channels,
         max_duration_seconds=max_duration,
         recordings_dir=recordings_dir,
-        log_level=log_level.upper(),  # type: ignore[arg-type]
+        log_level=log_level,
     )
 
     # Set up logging before anything else
@@ -90,7 +90,7 @@ def test_audio(
         channels=channels,
         max_duration_seconds=duration,
         recordings_dir=recordings_dir,
-        log_level=log_level.upper(),  # type: ignore[arg-type]
+        log_level=log_level,
     )
 
     from app.utils import setup_logging  # noqa: PLC0415

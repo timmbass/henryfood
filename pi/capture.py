@@ -9,11 +9,12 @@ Flow:
 """
 
 from gpiozero import Button
-from signal import pause
+import signal
 from pathlib import Path
 from datetime import datetime
 import subprocess
 import threading
+import time
 
 button = Button(17, pull_up=True, bounce_time=0.2)
 
@@ -77,9 +78,21 @@ def toggle_recording() -> None:
                 "-c", "1",
                 str(current_file),
             ])
+
+            # Bug 2: detect immediate failure (e.g. wrong device number)
+            time.sleep(0.1)
+            if recording_proc.poll() is not None:
+                print(
+                    f"arecord failed immediately (exit {recording_proc.returncode}) "
+                    "— check the ALSA device (arecord -l)",
+                    flush=True,
+                )
+                recording_proc = None
+                current_file = None
+                return
         else:
             print("Stopping recording", flush=True)
-            recording_proc.terminate()
+            recording_proc.send_signal(signal.SIGINT)
             try:
                 recording_proc.wait(timeout=10)
             except subprocess.TimeoutExpired:
@@ -88,7 +101,14 @@ def toggle_recording() -> None:
                     recording_proc.wait(timeout=5)
                 except subprocess.TimeoutExpired:
                     pass
+
+            rc = recording_proc.returncode
             recording_proc = None
+
+            if rc != 0:
+                print(f"arecord exited with error (code {rc}) — skipping transfer.", flush=True)
+                return
+
             print(f"Saved: {current_file}", flush=True)
 
             if current_file and current_file.exists():
@@ -98,4 +118,4 @@ def toggle_recording() -> None:
 button.when_pressed = toggle_recording
 
 print("Ready. Press once to start recording, again to stop.", flush=True)
-pause()
+signal.pause()

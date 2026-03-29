@@ -5,10 +5,10 @@ from signal import pause
 button = Button(17, pull_up=True, bounce_time=0.1)
 
 def say_hello():
-    print("hello world")
+    print("hello world", flush=True)
 
 button.when_pressed = say_hello
 
-print("Ready. Press the button...")
+print("Ready. Press the button...", flush=True)
 
 pause()

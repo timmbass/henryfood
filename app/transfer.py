@@ -93,7 +93,7 @@ class WavTransfer:
         ]
 
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, check=False)
         except subprocess.TimeoutExpired as exc:
             logger.error("Transfer timed out for %s: %s", wav_path.name, exc)
             self._add_to_manifest(wav_path)

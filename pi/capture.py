@@ -13,6 +13,7 @@ from signal import pause
 from pathlib import Path
 from datetime import datetime
 import subprocess
+import threading
 
 button = Button(17, pull_up=True, bounce_time=0.2)
 
@@ -26,6 +27,7 @@ REMOTE_SCRIPT = "/home/timbass/ai-lab/henryfood/scripts/process_audio_remote.sh"
 
 recording_proc = None
 current_file = None
+_lock = threading.Lock()
 
 
 def trigger_pipeline(remote_filepath: str) -> None:
@@ -35,7 +37,7 @@ def trigger_pipeline(remote_filepath: str) -> None:
         "ssh",
         f"{I5_USER}@{I5_HOST}",
         f"bash {REMOTE_SCRIPT} {remote_filepath}",
-    ])
+    ], check=False)
     if result.returncode == 0:
         print("Pipeline triggered.", flush=True)
     else:
@@ -49,7 +51,7 @@ def send_to_i5(filepath: Path) -> None:
         "-av",
         str(filepath),
         f"{I5_USER}@{I5_HOST}:{REMOTE_DIR}/",
-    ])
+    ], check=False)
     if result.returncode == 0:
         print("Transfer complete.", flush=True)
         trigger_pipeline(f"{REMOTE_DIR}/{filepath.name}")
@@ -60,29 +62,37 @@ def send_to_i5(filepath: Path) -> None:
 def toggle_recording() -> None:
     global recording_proc, current_file
 
-    if recording_proc is None:
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        current_file = audio_dir / f"meal_note_{ts}.wav"
+    with _lock:
+        if recording_proc is None:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            current_file = audio_dir / f"meal_note_{ts}.wav"
 
-        print(f"Starting recording: {current_file}", flush=True)
+            print(f"Starting recording: {current_file}", flush=True)
 
-        recording_proc = subprocess.Popen([
-            "arecord",
-            "-D", "plughw:3,0",
-            "-f", "S16_LE",
-            "-r", "16000",
-            "-c", "1",
-            str(current_file),
-        ])
-    else:
-        print("Stopping recording", flush=True)
-        recording_proc.terminate()
-        recording_proc.wait()
-        recording_proc = None
-        print(f"Saved: {current_file}", flush=True)
+            recording_proc = subprocess.Popen([
+                "arecord",
+                "-D", "plughw:3,0",
+                "-f", "S16_LE",
+                "-r", "16000",
+                "-c", "1",
+                str(current_file),
+            ])
+        else:
+            print("Stopping recording", flush=True)
+            recording_proc.terminate()
+            try:
+                recording_proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                recording_proc.kill()
+                try:
+                    recording_proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    pass
+            recording_proc = None
+            print(f"Saved: {current_file}", flush=True)
 
-        if current_file and current_file.exists():
-            send_to_i5(current_file)
+            if current_file and current_file.exists():
+                send_to_i5(current_file)
 
 
 button.when_pressed = toggle_recording

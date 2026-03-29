@@ -105,14 +105,19 @@ def toggle_recording() -> None:
             rc = recording_proc.returncode
             recording_proc = None
 
-            if rc != 0:
+            # arecord exits with code 1 when stopped by SIGINT — this is normal
+            # and the WAV file is still written correctly.  Only bail out on
+            # unexpected codes (e.g. -9 for SIGKILL, 2+ for device errors).
+            if rc not in (0, 1):
                 print(f"arecord exited with error (code {rc}) — skipping transfer.", flush=True)
                 return
 
-            print(f"Saved: {current_file}", flush=True)
+            if not (current_file and current_file.exists() and current_file.stat().st_size > 44):
+                print("Recording file missing or empty — skipping transfer.", flush=True)
+                return
 
-            if current_file and current_file.exists():
-                send_to_i5(current_file)
+            print(f"Saved: {current_file}", flush=True)
+            send_to_i5(current_file)
 
 
 button.when_pressed = toggle_recording
